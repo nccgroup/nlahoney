@@ -1,0 +1,2 @@
+/usr/bin/ar qc librdpsnd-client.a  CMakeFiles/rdpsnd-client.dir/rdpsnd_main.c.o
+/usr/bin/ranlib librdpsnd-client.a

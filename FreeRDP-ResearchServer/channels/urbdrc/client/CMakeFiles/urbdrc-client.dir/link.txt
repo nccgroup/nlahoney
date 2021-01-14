@@ -1,0 +1,2 @@
+/usr/bin/ar qc liburbdrc-client.a  CMakeFiles/urbdrc-client.dir/data_transfer.c.o CMakeFiles/urbdrc-client.dir/urbdrc_main.c.o ../common/CMakeFiles/urbdrc-common.dir/urbdrc_helpers.c.o ../common/CMakeFiles/urbdrc-common.dir/msusb.c.o
+/usr/bin/ranlib liburbdrc-client.a

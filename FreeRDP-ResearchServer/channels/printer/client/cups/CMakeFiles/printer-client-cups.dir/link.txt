@@ -1,0 +1,2 @@
+/usr/bin/ar qc libprinter-client-cups.a  CMakeFiles/printer-client-cups.dir/printer_cups.c.o
+/usr/bin/ranlib libprinter-client-cups.a

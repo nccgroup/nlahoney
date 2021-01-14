@@ -1,0 +1,2 @@
+/usr/bin/ar qc librdp2tcp-client.a  CMakeFiles/rdp2tcp-client.dir/rdp2tcp_main.c.o
+/usr/bin/ranlib librdp2tcp-client.a

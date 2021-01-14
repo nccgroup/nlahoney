@@ -1,0 +1,2 @@
+/usr/bin/ar qc librdpei-server.a  CMakeFiles/rdpei-server.dir/rdpei_main.c.o CMakeFiles/rdpei-server.dir/__/rdpei_common.c.o
+/usr/bin/ranlib librdpei-server.a

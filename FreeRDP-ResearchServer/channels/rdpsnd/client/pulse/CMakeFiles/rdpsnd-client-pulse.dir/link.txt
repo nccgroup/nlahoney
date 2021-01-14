@@ -1,0 +1,2 @@
+/usr/bin/ar qc librdpsnd-client-pulse.a  CMakeFiles/rdpsnd-client-pulse.dir/rdpsnd_pulse.c.o
+/usr/bin/ranlib librdpsnd-client-pulse.a

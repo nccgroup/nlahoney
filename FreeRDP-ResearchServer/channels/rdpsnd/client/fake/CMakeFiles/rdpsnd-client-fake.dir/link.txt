@@ -1,0 +1,2 @@
+/usr/bin/ar qc librdpsnd-client-fake.a  CMakeFiles/rdpsnd-client-fake.dir/rdpsnd_fake.c.o
+/usr/bin/ranlib librdpsnd-client-fake.a

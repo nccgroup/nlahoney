@@ -1,0 +1,2 @@
+/usr/bin/ar qc librdpsnd-client-proxy.a  CMakeFiles/rdpsnd-client-proxy.dir/rdpsnd_proxy.c.o
+/usr/bin/ranlib librdpsnd-client-proxy.a

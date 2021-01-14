@@ -1,0 +1,2 @@
+/usr/bin/ar qc libdrdynvc-server.a  CMakeFiles/drdynvc-server.dir/drdynvc_main.c.o
+/usr/bin/ranlib libdrdynvc-server.a

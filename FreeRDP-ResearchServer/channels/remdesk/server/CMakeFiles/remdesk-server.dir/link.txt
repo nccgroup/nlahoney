@@ -1,0 +1,2 @@
+/usr/bin/ar qc libremdesk-server.a  CMakeFiles/remdesk-server.dir/remdesk_main.c.o
+/usr/bin/ranlib libremdesk-server.a

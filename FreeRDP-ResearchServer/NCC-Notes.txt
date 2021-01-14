@@ -1,0 +1,8 @@
+# Generate a SAM file
+Use ./winpr/tools/hash-cli/winpr-hash
+
+# Running the X Server
+Xvfb :0 -screen 1 1024x768x24
+
+# Run the RDP Enabled FreeRDP Server
+./server/shadow/freerdp-shadow-cli /sec:nla /sam-file:../sam

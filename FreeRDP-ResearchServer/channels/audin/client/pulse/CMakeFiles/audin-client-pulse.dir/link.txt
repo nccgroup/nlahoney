@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaudin-client-pulse.a  CMakeFiles/audin-client-pulse.dir/audin_pulse.c.o
+/usr/bin/ranlib libaudin-client-pulse.a

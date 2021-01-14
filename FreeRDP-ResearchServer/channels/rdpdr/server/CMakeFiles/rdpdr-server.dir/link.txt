@@ -1,0 +1,2 @@
+/usr/bin/ar qc librdpdr-server.a  CMakeFiles/rdpdr-server.dir/rdpdr_main.c.o
+/usr/bin/ranlib librdpdr-server.a

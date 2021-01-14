@@ -1,0 +1,3 @@
+# Hashes of file build rules.
+c1dbd4f0343cb52e0a19dd9ffb4fc85c client/X11/CMakeFiles/xfreerdp.manpage
+4ec9d230b0ebe7cfca236f616d152644 client/X11/xfreerdp.1

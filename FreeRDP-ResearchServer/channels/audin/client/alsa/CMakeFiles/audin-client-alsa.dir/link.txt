@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaudin-client-alsa.a  CMakeFiles/audin-client-alsa.dir/audin_alsa.c.o
+/usr/bin/ranlib libaudin-client-alsa.a

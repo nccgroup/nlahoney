@@ -1,0 +1,2 @@
+/usr/bin/ar qc librdpgfx-server.a  CMakeFiles/rdpgfx-server.dir/rdpgfx_main.c.o CMakeFiles/rdpgfx-server.dir/__/rdpgfx_common.c.o
+/usr/bin/ranlib librdpgfx-server.a

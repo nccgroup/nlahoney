@@ -1,0 +1,2 @@
+/usr/bin/ar qc libdrdynvc-client.a  CMakeFiles/drdynvc-client.dir/drdynvc_main.c.o
+/usr/bin/ranlib libdrdynvc-client.a
