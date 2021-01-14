@@ -6,3 +6,137 @@ Xvfb :0 -screen 1 1024x768x24
 
 # Run the RDP Enabled FreeRDP Server
 ./server/shadow/freerdp-shadow-cli /sec:nla /sam-file:../sam
+
+# Example
+ollie@huginn:~/freerdp/FreeRDP$ ./server/shadow/freerdp-shadow-cli /sec:nla /sam-file:../sam
+[18:48:47:715] [109695:109695] [INFO][com.freerdp.server.shadow.x11] - X11 Extensions: XFixes: 1 Xinerama: 0 XDamage: 0 XShm: 0
+[18:48:47:721] [109695:109695] [INFO][com.freerdp.core.listener] - Listening on [0.0.0.0]:3389
+[18:48:50:052] [109695:109708] [INFO][com.freerdp.core.connection] - Client Security: NLA:1 TLS:1 RDP:0
+[18:48:50:061] [109695:109708] [INFO][com.freerdp.core.connection] - Server Security: NLA:1 TLS:0 RDP:0
+[18:48:50:061] [109695:109708] [INFO][com.freerdp.core.connection] - Negotiated Security: NLA:1 TLS:0 RDP:0
+[18:48:53:961] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ** ntlm_AcceptSecurityContext
+[18:48:53:962] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_ContextNew
+[18:48:53:962] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_SetContextTargetName
+[18:48:53:963] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_read_NegotiateMessage
+[18:48:53:963] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY]   -<- reads into NegotiateMessage
+[18:48:53:964] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- domain (nil)
+[18:48:53:964] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- workskation (nil)
+[18:48:53:965] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_write_ChallengeMessage
+[18:48:53:965] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY]   ->- ServerChallenge
+[18:48:53:965] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_generate_timestamp
+[18:48:53:965] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_current_time
+[18:48:53:965] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] RET ntlm_write_ChallengeMessage
+[18:48:53:965] [109695:109708] [WARN][com.winpr.negotiate] - AcceptSecurityContext status SEC_I_CONTINUE_NEEDED [0x00090312]
+[18:48:53:969] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ** ntlm_AcceptSecurityContext
+[18:48:53:969] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_read_AuthenticateMessage
+[18:48:53:969] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY]   -<- AuthenticateMessage
+[18:48:53:969] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- domain
+[18:48:53:969] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- user
+
+[18:48:53:970] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- workstation
+[18:48:53:970] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- domain
+[18:48:53:974] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- user
+
+[18:48:53:974] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- workstation
+[18:48:53:974] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_read_ntlm_v2_response (reads the client challenge)
+[18:48:53:974] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_read_ntlm_v2_client_challenge
+[18:48:53:974] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY]   got inbound MIC
+[18:48:53:974] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] RET ntlm_read_AuthenticateMessage
+[18:48:53:974] [109695:109708] [WARN][com.winpr.negotiate] - AcceptSecurityContext status SEC_I_COMPLETE_NEEDED [0x00090313]
+[18:48:53:974] [109695:109708] [INFO][com.winpr.sspi] - [HONEY] winpr_SetContextAttributesA
+[18:48:53:974] [109695:109708] [INFO][com.winpr.negotiate] - [HONEY] negotiate_SetContextAttributesA
+[18:48:53:975] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_SetContextAttributesA
+[18:48:53:975] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_SetContextAttributesW
+[18:48:53:975] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY]   --- where we calculate AuthNtlmMessage and put in AuthenticateMessage
+[18:48:53:975] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY]   --- this is the bit we need to generate unique
+[18:48:53:975] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_CompleteAuthToken
+[18:48:53:975] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_server_AuthenticateComplete
+[18:48:53:975] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY]   -- Final stage
+[18:48:53:975] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_compute_lm_v2_response
+[18:48:53:975] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_compute_ntlm_v2_hash
+[18:48:53:981] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- Using SAM
+[18:48:53:981] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_fetch_ntlm_v2_hash
+[18:48:53:981] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] RET ntlm_compute_ntlm_v2_hash
+[18:48:53:988] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] RET ntlm_compute_lm_v2_response
+[18:48:53:988] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_compute_ntlm_v2_response
+[18:48:53:988] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_compute_ntlm_v2_hash
+[18:48:53:989] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] RET ntlm_compute_ntlm_v2_response
+[18:48:53:994] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_compute_message_integrity_check
+[18:48:53:994] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- NEGOTIATE_MESSAGE    - context->NegotiateMessage    - (we receive)
+[18:48:53:994] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- CHALLENGE_MESSAGE    - context->ChallengeMessage    - (we send)
+[18:48:53:995] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- AUTHENTICATE_MESSAGE - context->AuthenticateMessage - (we gen)
+[18:48:53:995] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- using ExportedSessionKey
+[18:48:53:995] [109695:109708] [ERROR][com.winpr.sspi.NTLM] - Message Integrity Check (MIC) verification failed!
+[18:48:53:996] [109695:109708] [WARN][com.winpr.sspi] - CompleteAuthToken status SEC_E_MESSAGE_ALTERED [0x8009030F]
+[18:48:53:996] [109695:109708] [WARN][com.freerdp.core.nla] - CompleteAuthToken status SEC_E_MESSAGE_ALTERED [0x8009030F]
+[18:48:53:996] [109695:109708] [ERROR][com.freerdp.core.transport] - client authentication failure
+[18:48:53:997] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_DeleteSecurityContext
+[18:48:53:997] [109695:109708] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_ContextFree
+[18:48:53:997] [109695:109708] [ERROR][com.freerdp.core.peer] - peer_recv_callback: CONNECTION_STATE_INITIAL - rdp_server_accept_nego() fail
+[18:48:53:997] [109695:109708] [ERROR][com.freerdp.core.transport] - transport_check_fds: transport->ReceiveCallback() - -1
+[18:48:53:997] [109695:109708] [ERROR][com.freerdp.client.shadow] - Failed to check FreeRDP file descriptor
+[18:48:53:023] [109695:109709] [INFO][com.freerdp.core.connection] - Client Security: NLA:1 TLS:1 RDP:0
+[18:48:53:023] [109695:109709] [INFO][com.freerdp.core.connection] - Server Security: NLA:1 TLS:0 RDP:0
+[18:48:53:023] [109695:109709] [INFO][com.freerdp.core.connection] - Negotiated Security: NLA:1 TLS:0 RDP:0
+[18:48:53:041] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ** ntlm_AcceptSecurityContext
+[18:48:53:042] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_ContextNew
+[18:48:53:042] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_SetContextTargetName
+[18:48:53:042] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_read_NegotiateMessage
+[18:48:53:042] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY]   -<- reads into NegotiateMessage
+[18:48:53:042] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- domain (nil)
+[18:48:53:043] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- workskation (nil)
+[18:48:53:043] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_write_ChallengeMessage
+[18:48:53:043] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY]   ->- ServerChallenge
+[18:48:53:043] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_generate_timestamp
+[18:48:53:044] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_current_time
+[18:48:53:044] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] RET ntlm_write_ChallengeMessage
+[18:48:53:044] [109695:109709] [WARN][com.winpr.negotiate] - AcceptSecurityContext status SEC_I_CONTINUE_NEEDED [0x00090312]
+[18:48:53:048] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ** ntlm_AcceptSecurityContext
+[18:48:53:049] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_read_AuthenticateMessage
+[18:48:53:049] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY]   -<- AuthenticateMessage
+[18:48:53:049] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- domain
+[18:48:53:049] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- user
+
+[18:48:53:050] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- workstation
+[18:48:53:050] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- domain
+[18:48:53:050] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- user
+
+[18:48:53:051] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- workstation
+[18:48:53:051] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_read_ntlm_v2_response (reads the client challenge)
+[18:48:53:052] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_read_ntlm_v2_client_challenge
+[18:48:53:053] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY]   got inbound MIC
+[18:48:53:053] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] RET ntlm_read_AuthenticateMessage
+[18:48:53:053] [109695:109709] [WARN][com.winpr.negotiate] - AcceptSecurityContext status SEC_I_COMPLETE_NEEDED [0x00090313]
+[18:48:53:054] [109695:109709] [INFO][com.winpr.sspi] - [HONEY] winpr_SetContextAttributesA
+[18:48:53:054] [109695:109709] [INFO][com.winpr.negotiate] - [HONEY] negotiate_SetContextAttributesA
+[18:48:53:054] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_SetContextAttributesA
+[18:48:53:054] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_SetContextAttributesW
+[18:48:53:054] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY]   --- where we calculate AuthNtlmMessage and put in AuthenticateMessage
+[18:48:53:054] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY]   --- this is the bit we need to generate unique
+[18:48:53:054] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_CompleteAuthToken
+[18:48:53:054] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_server_AuthenticateComplete
+[18:48:53:054] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY]   -- Final stage
+[18:48:53:054] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_compute_lm_v2_response
+[18:48:53:056] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_compute_ntlm_v2_hash
+[18:48:53:056] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- Using SAM
+[18:48:53:056] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_fetch_ntlm_v2_hash
+[18:48:53:056] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] RET ntlm_compute_ntlm_v2_hash
+[18:48:53:057] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] RET ntlm_compute_lm_v2_response
+[18:48:53:057] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_compute_ntlm_v2_response
+[18:48:53:058] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_compute_ntlm_v2_hash
+[18:48:53:058] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] RET ntlm_compute_ntlm_v2_response
+[18:48:53:059] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_compute_message_integrity_check
+[18:48:53:059] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- NEGOTIATE_MESSAGE    - context->NegotiateMessage    - (we receive)
+[18:48:53:059] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- CHALLENGE_MESSAGE    - context->ChallengeMessage    - (we send)
+[18:48:53:059] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- AUTHENTICATE_MESSAGE - context->AuthenticateMessage - (we gen)
+[18:48:53:059] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] -- using ExportedSessionKey
+[18:48:53:059] [109695:109709] [ERROR][com.winpr.sspi.NTLM] - Message Integrity Check (MIC) verification failed!
+[18:48:53:059] [109695:109709] [WARN][com.winpr.sspi] - CompleteAuthToken status SEC_E_MESSAGE_ALTERED [0x8009030F]
+[18:48:53:060] [109695:109709] [WARN][com.freerdp.core.nla] - CompleteAuthToken status SEC_E_MESSAGE_ALTERED [0x8009030F]
+[18:48:53:060] [109695:109709] [ERROR][com.freerdp.core.transport] - client authentication failure
+[18:48:53:061] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_DeleteSecurityContext
+[18:48:53:061] [109695:109709] [INFO][com.winpr.sspi.NTLM] - [HONEY] ntlm_ContextFree
+[18:48:53:061] [109695:109709] [ERROR][com.freerdp.core.peer] - peer_recv_callback: CONNECTION_STATE_INITIAL - rdp_server_accept_nego() fail
+[18:48:53:061] [109695:109709] [ERROR][com.freerdp.core.transport] - transport_check_fds: transport->ReceiveCallback() - -1
+[18:48:53:062] [109695:109709] [ERROR][com.freerdp.client.shadow] - Failed to check FreeRDP file descriptor
+
