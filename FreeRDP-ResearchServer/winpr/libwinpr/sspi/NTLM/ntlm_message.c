@@ -385,7 +385,13 @@ SECURITY_STATUS ntlm_read_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer buf
 {
 	
 	WLog_INFO(TAG,"[HONEY] ntlm_read_ChallengeMessage");
-		
+	char strFileOut[255];
+	sprintf(strFileOut,"/tmp/%u.ChallengeIn.bin",context->randID);
+	FILE *ptrFile = fopen(strFileOut,"wb");
+	size_t wroteOut = 0;
+	wroteOut = fwrite((BYTE*)buffer->pvBuffer,buffer->cbBuffer,1,ptrFile);
+	fclose(ptrFile);
+	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
 	
 	SECURITY_STATUS status = SEC_E_INVALID_TOKEN;
 	wStream* s;
@@ -670,6 +676,14 @@ SECURITY_STATUS ntlm_write_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer bu
 #endif
 	context->state = NTLM_STATE_AUTHENTICATE;
 	Stream_Free(s, FALSE);
+	
+	char strFileOut[255];
+	sprintf(strFileOut,"/tmp/%u.ChallengeOut.bin",context->randID);
+	FILE *ptrFile = fopen(strFileOut,"wb");
+	size_t wroteOut = 0;
+	wroteOut = fwrite((BYTE*)context->ChallengeMessage.pvBuffer,sizeof(BYTE),context->ChallengeMessage.cbBuffer,ptrFile);
+	fclose(ptrFile);
+	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
 	
 	WLog_INFO(TAG,"[HONEY] RET ntlm_write_ChallengeMessage");
 	
