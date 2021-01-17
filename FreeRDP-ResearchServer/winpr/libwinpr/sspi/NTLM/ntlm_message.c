@@ -384,6 +384,15 @@ SECURITY_STATUS ntlm_write_NegotiateMessage(NTLM_CONTEXT* context, PSecBuffer bu
 		ntlm_print_version_info(&(message->Version));
 
 #endif
+
+	char strFileOut[255];
+	sprintf(strFileOut,"/tmp/%u.NegotiateOut.bin",context->randID);
+	FILE *ptrFile = fopen(strFileOut,"wb");
+	size_t wroteOut = 0;
+	wroteOut = fwrite((BYTE*)context->NegotiateMessage.pvBuffer,sizeof(BYTE),context->NegotiateMessage.cbBuffer,ptrFile);
+	fclose(ptrFile);
+	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
+	
 	context->state = NTLM_STATE_CHALLENGE;
 	Stream_Free(s, FALSE);
 	return SEC_I_CONTINUE_NEEDED;
@@ -1114,6 +1123,15 @@ SECURITY_STATUS ntlm_write_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer
 	}
 
 #endif
+
+	char strFileOut[255];
+	sprintf(strFileOut,"/tmp/%u.AuthenticateOut.bin",context->randID);
+	FILE *ptrFile = fopen(strFileOut,"wb");
+	size_t wroteOut = 0;
+	wroteOut = fwrite((BYTE*)context->AuthenticateMessage.pvBuffer,sizeof(BYTE),context->AuthenticateMessage.cbBuffer,ptrFile);
+	fclose(ptrFile);
+	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
+	
 	context->state = NTLM_STATE_FINAL;
 	Stream_Free(s, FALSE);
 	return SEC_I_COMPLETE_NEEDED;
