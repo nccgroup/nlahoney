@@ -71,7 +71,7 @@ def streamReadNTLMMessageField(barray, streamindex):
 
 #
 def parseNegotiate(session):
-	print("[i] ** Parsing Negotiate for " + str(session))
+	print("[i] ** Parsing Negotiate for session " + str(session))
 	
 	streamindex = 0
 	
@@ -141,7 +141,7 @@ def parseNegotiate(session):
 
 #
 def parseChallenge(session):
-	print("[i] ** Parsing Challenge for " + str(session))
+	print("[i] ** Parsing Challenge for session " + str(session))
 	
 	streamindex = 0
 	
@@ -206,7 +206,64 @@ def parseChallenge(session):
 
 #
 def parseAuthenticate(session):
-	print("[i] Parsing Authenticate for " + str(session))
+	print("[i] ** Parsing Authenticate for session " + str(session))
+	
+	streamindex = 0
+	
+	strFile = "/tmp/" + str(session) + ".AuthenticateIn.bin"
+	hFile = open(strFile, 'rb')
+	ba = bytearray(hFile.read())
+	
+	ret,streamindex = checkHeaderandGetType(ba,streamindex)
+	if ret is False:
+		print("[!] Packet magic is not present ")
+		return False
+	elif ret != 3: # MESSAGE_TYPE_AUTHENTICATE
+		print("[!] Incorrect message type " + str(ret))
+		return False
+	else:
+		remaining = streamGetRemainingBytes(ba,streamindex);
+		if remaining < 4:
+			print("[!] Not enough bytes remaining " + str(remaining.stream))
+			return False
+		
+		else:
+			# LmChallengeResponse
+			bSuccess, streamindex, lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] LM Challenge Response Length: " + str(lmcrlen) + " at " +str(lmcrbufferoffset)) 
+			
+			# LmChallengeResponse
+			bSuccess, streamindex, ntcrlen, ntcrmaxlen, ntcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] NT Challenge Response Length: " + str(ntcrlen) + " at " +str(ntcrbufferoffset)) 
+			
+			# Domain Name
+			bSuccess, streamindex, domlen, dommaxlen, dombufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] Domain Name Length: " + str(domlen) + " at " +str(dombufferoffset)) 
+			domain,throwaway = streamReadBytes(ba,dombufferoffset,domlen)
+			print("[i] Got Domain " + str(domain.decode('utf8', errors='ignore')))
+			
+			# User Name
+			bSuccess, streamindex, usrlen, usrmaxlen, usrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] User Name Length: " + str(usrlen) + " at " +str(usrbufferoffset)) 
+			username,throwaway = streamReadBytes(ba,usrbufferoffset,usrlen)
+			print("[i] Got User Name " + str(username.decode('utf8', errors='ignore')))
+				
+			# Workstation
+			bSuccess, streamindex, wslen, wsmaxlen, wsbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] Workstation Length: " + str(wslen) + " at " +str(wsbufferoffset)) 
+			workstation,throwaway = streamReadBytes(ba,wsbufferoffset,wslen)
+			print("[i] Got Workstation " + str(workstation.decode('utf8', errors='ignore')))
+			
+			
+			# Workstation
+			bSuccess, streamindex, ersklen, ersklen, erskbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] Encrypted Random Session Key Length: " + str(ersklen) + " at " +str(erskbufferoffset)) 
+			
+			
+			
+			
+			
+			
 	
 # Parse the files
 def parsefiles(session):
