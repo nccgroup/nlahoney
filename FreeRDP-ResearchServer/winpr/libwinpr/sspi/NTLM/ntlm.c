@@ -185,6 +185,7 @@ static NTLM_CONTEXT* ntlm_ContextNew(void)
 	if (!context)
 		return NULL;
 
+	srand (time(NULL)); // be on the safe side
 	context->randID = (unsigned int) rand();
 	context->NTLMv2 = TRUE;
 	context->UseMIC = FALSE;
