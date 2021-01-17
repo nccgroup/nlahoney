@@ -389,7 +389,7 @@ SECURITY_STATUS ntlm_read_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer buf
 	sprintf(strFileOut,"/tmp/%u.ChallengeIn.bin",context->randID);
 	FILE *ptrFile = fopen(strFileOut,"wb");
 	size_t wroteOut = 0;
-	wroteOut = fwrite((BYTE*)buffer->pvBuffer,buffer->cbBuffer,1,ptrFile);
+	wroteOut = fwrite((BYTE*)buffer->pvBuffer,sizeof(byte),buffer->cbBuffer,ptrFile);
 	fclose(ptrFile);
 	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
 	
