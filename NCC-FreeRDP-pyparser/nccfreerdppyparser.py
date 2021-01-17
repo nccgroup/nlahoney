@@ -96,6 +96,14 @@ def parseNegotiate(session):
 			streamindex = streamindex + 1 # Skips over a reserved
 			NTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
 			print("[i] from Version: " + str(ProductMajorVersion) + "." + str(ProductMinorVersion) + " build (" + str(ProductProductBuild) +") NTLM Revision " + str(NTLMRevisionCurrent))
+			
+			# TODO: Read the domain if present
+			
+			# TODO: Read the workstation if present
+			
+			# TODO: Check NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION 
+			#       if present read the version out
+			
 
 #
 def parseChallenge(session):
