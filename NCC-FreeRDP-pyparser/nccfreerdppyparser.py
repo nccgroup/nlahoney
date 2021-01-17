@@ -136,9 +136,6 @@ def parseNegotiate(session):
 				negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
 				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 				
-				
-			# NOTE: Looks like there might be a version info anyway
-			
 			return True
 			
 
@@ -168,8 +165,8 @@ def parseChallenge(session):
 		else:
 
 			# Target Name
-			bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Target Name Length: " + str(len) + " at " +str(bufferoffset)) 
+			bSuccess, streamindex, tnlen, tnmaxlen, tnbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] Target Name Length: " + str(tnlen) + " at " +str(tnbufferoffset)) 
 			
 			# Negotiate Flags
 			NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
@@ -182,13 +179,30 @@ def parseChallenge(session):
 			print("[i] Skipped reserved ")
 			
 			# Target Info
-			bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Target Info Length: " + str(len) + " at " +str(bufferoffset)) 
+			bSuccess, streamindex, tilen, timaxlen, tibufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] Target Info Length: " + str(tilen) + " at " +str(tibufferoffset)) 
 			
-			# Now check
+			# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION 
+			if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION 
+				# Product Version
+				negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
+				negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
+				negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
+				streamindex = streamindex + 1 # Skips over a reserved
+				negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
+				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 			
+			# Target Name
+			if NegotiateFlags & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
+				targetname,throwaway = streamReadBytes(ba,tnbufferoffset,tnlen)
+				print("[i] Got Target Name " + str(targetname.decode('utf8', errors='ignore')))
 			
-			
+			# Target Info - maybe parse this?
+			if NegotiateFlags & 0x00800000 :	# NTLMSSP_NEGOTIATE_TARGET_INFO
+				targetinfo,throwaway= streamReadBytes(ba,tibufferoffset,tilen)
+				print("[i] Got Target Info " + str(binascii.hexlify(targetinfo)))
+				
+			return True
 
 #
 def parseAuthenticate(session):
