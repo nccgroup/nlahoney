@@ -1,2 +1,0 @@
-/usr/bin/ar qc librail-server.a  CMakeFiles/rail-server.dir/__/rail_common.c.o CMakeFiles/rail-server.dir/rail_main.c.o
-/usr/bin/ranlib librail-server.a

@@ -81,7 +81,7 @@ if ($ENV{BUILD_NUMBER})
 endif()
 set(WITH_LIBRARY_VERSIONING "ON")
 
-set(RAW_VERSION_STRING "3.0.0-dev")
+set(RAW_VERSION_STRING "2.2.0")
 if(EXISTS "${CMAKE_SOURCE_DIR}/.source_tag")
 	file(READ ${CMAKE_SOURCE_DIR}/.source_tag RAW_VERSION_STRING)
 elseif(USE_VERSION_FROM_GIT_TAG)
@@ -949,13 +949,14 @@ else()
 	set(FREERDP_PROXY_PLUGINDIR "${PROXY_PLUGINDIR}")
 endif()
 
-# Declare we have config.h, generated later on.
-add_definitions("-DHAVE_CONFIG_H")
-
 # Include directories
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Configure files
+add_definitions("-DHAVE_CONFIG_H")
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
 # RPATH configuration
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
@@ -1071,9 +1072,6 @@ endif()
 if(WITH_SERVER)
 	add_subdirectory(server)
 endif()
-
-# Configure files - Add last so all symbols are defined
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
 # Packaging
 

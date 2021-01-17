@@ -26,20 +26,6 @@
 
 #include <winpr/collections.h>
 
-struct _wMessageQueue
-{
-	size_t head;
-	size_t tail;
-	size_t size;
-	size_t capacity;
-	BOOL closed;
-	wMessage* array;
-	CRITICAL_SECTION lock;
-	HANDLE event;
-
-	wObject object;
-};
-
 /**
  * Message Queue inspired from Windows:
  * http://msdn.microsoft.com/en-us/library/ms632590/
@@ -48,13 +34,6 @@ struct _wMessageQueue
 /**
  * Properties
  */
-
-wObject* MessageQueue_Object(wMessageQueue* queue)
-{
-	if (!queue)
-		return NULL;
-	return &queue->object;
-}
 
 /**
  * Gets an event which is set when the queue is non-empty
@@ -69,7 +48,7 @@ HANDLE MessageQueue_Event(wMessageQueue* queue)
  * Gets the queue size
  */
 
-size_t MessageQueue_Size(wMessageQueue* queue)
+int MessageQueue_Size(wMessageQueue* queue)
 {
 	return queue->size;
 }
@@ -88,23 +67,26 @@ BOOL MessageQueue_Wait(wMessageQueue* queue)
 	return status;
 }
 
-static BOOL MessageQueue_EnsureCapacity(wMessageQueue* queue, size_t count)
+BOOL MessageQueue_Dispatch(wMessageQueue* queue, wMessage* message)
 {
-	if (!queue)
+	BOOL ret = FALSE;
+	if (!queue || !message)
 		return FALSE;
 
-	if (queue->size + count >= queue->capacity)
-	{
-		wMessage* new_arr;
-		size_t old_capacity = queue->capacity;
-		size_t new_capacity = queue->capacity * 2;
+	EnterCriticalSection(&queue->lock);
 
-		if (new_capacity < queue->size + count)
-			new_capacity = queue->size + count;
+	if (queue->size == queue->capacity)
+	{
+		int old_capacity;
+		int new_capacity;
+		wMessage* new_arr;
+
+		old_capacity = queue->capacity;
+		new_capacity = queue->capacity * 2;
 
 		new_arr = (wMessage*)realloc(queue->array, sizeof(wMessage) * new_capacity);
 		if (!new_arr)
-			return FALSE;
+			goto out;
 		queue->array = new_arr;
 		queue->capacity = new_capacity;
 		ZeroMemory(&(queue->array[old_capacity]), (new_capacity - old_capacity) * sizeof(wMessage));
@@ -117,36 +99,16 @@ static BOOL MessageQueue_EnsureCapacity(wMessageQueue* queue, size_t count)
 		}
 	}
 
-	return TRUE;
-}
+	CopyMemory(&(queue->array[queue->tail]), message, sizeof(wMessage));
 
-BOOL MessageQueue_Dispatch(wMessageQueue* queue, const wMessage* message)
-{
-	wMessage* dst;
-	BOOL ret = FALSE;
-	if (!queue || !message)
-		return FALSE;
-
-	EnterCriticalSection(&queue->lock);
-
-	if (queue->closed)
-		goto out;
-
-	if (!MessageQueue_EnsureCapacity(queue, 1))
-		goto out;
-
-	dst = &(queue->array[queue->tail]);
-	*dst = *message;
-	dst->time = GetTickCount64();
+	message = &(queue->array[queue->tail]);
+	message->time = GetTickCount64();
 
 	queue->tail = (queue->tail + 1) % queue->capacity;
 	queue->size++;
 
 	if (queue->size > 0)
 		SetEvent(queue->event);
-
-	if (message->id == WMQ_QUIT)
-		queue->closed = TRUE;
 
 	ret = TRUE;
 out:
@@ -238,23 +200,29 @@ wMessageQueue* MessageQueue_New(const wObject* callback)
 	if (!queue)
 		return NULL;
 
-	if (!InitializeCriticalSectionAndSpinCount(&queue->lock, 4000))
-		goto fail;
+	queue->capacity = 32;
+	queue->array = (wMessage*)calloc(queue->capacity, sizeof(wMessage));
+	if (!queue->array)
+		goto error_array;
 
-	if (!MessageQueue_EnsureCapacity(queue, 32))
-		goto fail;
+	if (!InitializeCriticalSectionAndSpinCount(&queue->lock, 4000))
+		goto error_spinlock;
 
 	queue->event = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (!queue->event)
-		goto fail;
+		goto error_event;
 
 	if (callback)
 		queue->object = *callback;
 
 	return queue;
 
-fail:
-	MessageQueue_Free(queue);
+error_event:
+	DeleteCriticalSection(&queue->lock);
+error_spinlock:
+	free(queue->array);
+error_array:
+	free(queue);
 	return NULL;
 }
 
@@ -276,9 +244,6 @@ int MessageQueue_Clear(wMessageQueue* queue)
 {
 	int status = 0;
 
-	if (!queue || !queue->event)
-		return -1;
-
 	EnterCriticalSection(&queue->lock);
 
 	while (queue->size > 0)
@@ -297,7 +262,6 @@ int MessageQueue_Clear(wMessageQueue* queue)
 		queue->size--;
 	}
 	ResetEvent(queue->event);
-	queue->closed = FALSE;
 
 	LeaveCriticalSection(&queue->lock);
 

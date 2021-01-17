@@ -168,7 +168,6 @@ static SECURITY_STATUS SEC_ENTRY kerberos_QueryCredentialsAttributesW(PCredHandl
 		return SEC_E_OK;
 	}
 
-	WLog_ERR(TAG, "[%s]: TODO: Implement ulAttribute=%08" PRIx32, __FUNCTION__, ulAttribute);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -184,7 +183,6 @@ static SECURITY_STATUS SEC_ENTRY kerberos_InitializeSecurityContextW(
     ULONG Reserved1, ULONG TargetDataRep, PSecBufferDesc pInput, ULONG Reserved2,
     PCtxtHandle phNewContext, PSecBufferDesc pOutput, ULONG* pfContextAttr, PTimeStamp ptsExpiry)
 {
-	WLog_ERR(TAG, "[%s]: TODO: Implement", __FUNCTION__);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -627,7 +625,6 @@ static SECURITY_STATUS SEC_ENTRY kerberos_QueryContextAttributesA(PCtxtHandle ph
 		return SEC_E_OK;
 	}
 
-	WLog_ERR(TAG, "[%s]: TODO: Implement ulAttribute=%08" PRIx32, __FUNCTION__, ulAttribute);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 

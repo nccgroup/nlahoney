@@ -30,21 +30,11 @@
  * http://msdn.microsoft.com/en-us/library/awbftdfh.aspx
  */
 
-struct _wPubSub
-{
-	CRITICAL_SECTION lock;
-	BOOL synchronized;
-
-	size_t size;
-	size_t count;
-	wEventType* events;
-};
-
 /**
  * Properties
  */
 
-wEventType* PubSub_GetEventTypes(wPubSub* pubSub, size_t* count)
+wEventType* PubSub_GetEventTypes(wPubSub* pubSub, int* count)
 {
 	if (count)
 		*count = pubSub->count;
@@ -58,19 +48,17 @@ wEventType* PubSub_GetEventTypes(wPubSub* pubSub, size_t* count)
 
 void PubSub_Lock(wPubSub* pubSub)
 {
-	if (pubSub->synchronized)
-		EnterCriticalSection(&pubSub->lock);
+	EnterCriticalSection(&pubSub->lock);
 }
 
 void PubSub_Unlock(wPubSub* pubSub)
 {
-	if (pubSub->synchronized)
-		LeaveCriticalSection(&pubSub->lock);
+	LeaveCriticalSection(&pubSub->lock);
 }
 
 wEventType* PubSub_FindEventType(wPubSub* pubSub, const char* EventName)
 {
-	size_t index;
+	int index;
 	wEventType* event = NULL;
 
 	for (index = 0; index < pubSub->count; index++)
@@ -85,7 +73,7 @@ wEventType* PubSub_FindEventType(wPubSub* pubSub, const char* EventName)
 	return event;
 }
 
-void PubSub_AddEventTypes(wPubSub* pubSub, wEventType* events, size_t count)
+void PubSub_AddEventTypes(wPubSub* pubSub, wEventType* events, int count)
 {
 	if (pubSub->synchronized)
 		PubSub_Lock(pubSub);
@@ -138,7 +126,7 @@ int PubSub_Subscribe(wPubSub* pubSub, const char* EventName, pEventHandler Event
 
 int PubSub_Unsubscribe(wPubSub* pubSub, const char* EventName, pEventHandler EventHandler)
 {
-	size_t index;
+	int index;
 	wEventType* event;
 	int status = -1;
 
@@ -172,7 +160,7 @@ int PubSub_Unsubscribe(wPubSub* pubSub, const char* EventName, pEventHandler Eve
 
 int PubSub_OnEvent(wPubSub* pubSub, const char* EventName, void* context, wEventArgs* e)
 {
-	size_t index;
+	int index;
 	wEventType* event;
 	int status = -1;
 
@@ -207,7 +195,9 @@ int PubSub_OnEvent(wPubSub* pubSub, const char* EventName, void* context, wEvent
 
 wPubSub* PubSub_New(BOOL synchronized)
 {
-	wPubSub* pubSub = (wPubSub*)calloc(1, sizeof(wPubSub));
+	wPubSub* pubSub = NULL;
+
+	pubSub = (wPubSub*)malloc(sizeof(wPubSub));
 
 	if (!pubSub)
 		return NULL;
@@ -215,19 +205,24 @@ wPubSub* PubSub_New(BOOL synchronized)
 	pubSub->synchronized = synchronized;
 
 	if (pubSub->synchronized && !InitializeCriticalSectionAndSpinCount(&pubSub->lock, 4000))
-		goto fail;
+	{
+		free(pubSub);
+		return NULL;
+	}
 
 	pubSub->count = 0;
 	pubSub->size = 64;
 
 	pubSub->events = (wEventType*)calloc(pubSub->size, sizeof(wEventType));
 	if (!pubSub->events)
-		goto fail;
+	{
+		if (pubSub->synchronized)
+			DeleteCriticalSection(&pubSub->lock);
+		free(pubSub);
+		return NULL;
+	}
 
 	return pubSub;
-fail:
-	PubSub_Free(pubSub);
-	return NULL;
 }
 
 void PubSub_Free(wPubSub* pubSub)

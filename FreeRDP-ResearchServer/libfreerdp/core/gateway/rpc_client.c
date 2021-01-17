@@ -1022,10 +1022,10 @@ static BOOL rpc_client_resolve_gateway(rdpSettings* settings, char** host, UINT1
 		return FALSE;
 	else
 	{
-		const char* peerHostname = freerdp_settings_get_string(settings, FreeRDP_GatewayHostname);
-		const char* proxyUsername = freerdp_settings_get_string(settings, FreeRDP_GatewayUsername);
-		const char* proxyPassword = freerdp_settings_get_string(settings, FreeRDP_GatewayPassword);
-		*port = freerdp_settings_get_uint32(settings, FreeRDP_GatewayPort);
+		const char* peerHostname = settings->GatewayHostname;
+		const char* proxyUsername = settings->ProxyUsername;
+		const char* proxyPassword = settings->ProxyPassword;
+		*port = settings->GatewayPort;
 		*isProxy = proxy_prepare(settings, &peerHostname, port, &proxyUsername, &proxyPassword);
 		result = freerdp_tcp_resolve_host(peerHostname, *port, 0);
 
@@ -1041,7 +1041,6 @@ static BOOL rpc_client_resolve_gateway(rdpSettings* settings, char** host, UINT1
 
 RpcClient* rpc_client_new(rdpContext* context, UINT32 max_recv_frag)
 {
-	wObject* obj;
 	RpcClient* client = (RpcClient*)calloc(1, sizeof(RpcClient));
 
 	if (!client)
@@ -1082,11 +1081,7 @@ RpcClient* rpc_client_new(rdpContext* context, UINT32 max_recv_frag)
 	if (!client->ClientCallList)
 		goto fail;
 
-	obj = ArrayList_Object(client->ClientCallList);
-	if (!obj)
-		goto fail;
-
-	obj->fnObjectFree = rpc_array_client_call_free;
+	ArrayList_Object(client->ClientCallList)->fnObjectFree = rpc_array_client_call_free;
 	return client;
 fail:
 	rpc_client_free(client);

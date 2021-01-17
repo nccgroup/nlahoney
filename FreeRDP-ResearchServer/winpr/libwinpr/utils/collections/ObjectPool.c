@@ -25,16 +25,6 @@
 
 #include <winpr/collections.h>
 
-struct _wObjectPool
-{
-	size_t size;
-	size_t capacity;
-	void** array;
-	CRITICAL_SECTION lock;
-	wObject object;
-	BOOL synchronized;
-};
-
 /**
  * C Object Pool similar to C# BufferManager Class:
  * http://msdn.microsoft.com/en-us/library/ms405814.aspx
@@ -44,18 +34,6 @@ struct _wObjectPool
  * Methods
  */
 
-static void ObjectPool_Lock(wObjectPool* pool)
-{
-	if (pool->synchronized)
-		EnterCriticalSection(&pool->lock);
-}
-
-static void ObjectPool_Unlock(wObjectPool* pool)
-{
-	if (pool->synchronized)
-		LeaveCriticalSection(&pool->lock);
-}
-
 /**
  * Gets an object from the pool.
  */
@@ -64,7 +42,8 @@ void* ObjectPool_Take(wObjectPool* pool)
 {
 	void* obj = NULL;
 
-	ObjectPool_Lock(pool);
+	if (pool->synchronized)
+		EnterCriticalSection(&pool->lock);
 
 	if (pool->size > 0)
 		obj = pool->array[--(pool->size)];
@@ -78,7 +57,8 @@ void* ObjectPool_Take(wObjectPool* pool)
 	if (pool->object.fnObjectInit)
 		pool->object.fnObjectInit(obj);
 
-	ObjectPool_Unlock(pool);
+	if (pool->synchronized)
+		LeaveCriticalSection(&pool->lock);
 
 	return obj;
 }
@@ -89,7 +69,8 @@ void* ObjectPool_Take(wObjectPool* pool)
 
 void ObjectPool_Return(wObjectPool* pool, void* obj)
 {
-	ObjectPool_Lock(pool);
+	if (pool->synchronized)
+		EnterCriticalSection(&pool->lock);
 
 	if ((pool->size + 1) >= pool->capacity)
 	{
@@ -111,14 +92,8 @@ void ObjectPool_Return(wObjectPool* pool, void* obj)
 		pool->object.fnObjectUninit(obj);
 
 out:
-	ObjectPool_Unlock(pool);
-}
-
-wObject* ObjectPool_Object(wObjectPool* pool)
-{
-	if (!pool)
-		return NULL;
-	return &pool->object;
+	if (pool->synchronized)
+		LeaveCriticalSection(&pool->lock);
 }
 
 /**
@@ -127,7 +102,8 @@ wObject* ObjectPool_Object(wObjectPool* pool)
 
 void ObjectPool_Clear(wObjectPool* pool)
 {
-	ObjectPool_Lock(pool);
+	if (pool->synchronized)
+		EnterCriticalSection(&pool->lock);
 
 	while (pool->size > 0)
 	{
@@ -137,7 +113,8 @@ void ObjectPool_Clear(wObjectPool* pool)
 			pool->object.fnObjectFree(pool->array[pool->size]);
 	}
 
-	ObjectPool_Unlock(pool);
+	if (pool->synchronized)
+		LeaveCriticalSection(&pool->lock);
 }
 
 /**

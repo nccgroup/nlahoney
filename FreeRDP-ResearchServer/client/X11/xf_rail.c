@@ -180,7 +180,7 @@ void xf_rail_end_local_move(xfContext* xfc, xfAppWindow* appWindow)
 	if ((appWindow->local_move.direction != _NET_WM_MOVERESIZE_MOVE_KEYBOARD) &&
 	    (appWindow->local_move.direction != _NET_WM_MOVERESIZE_SIZE_KEYBOARD))
 	{
-		freerdp_input_send_mouse_event(input, PTR_FLAGS_BUTTON1, x, y);
+		input->MouseEvent(input, PTR_FLAGS_BUTTON1, x, y);
 	}
 
 	/*
@@ -595,7 +595,7 @@ static xfRailIcon* RailIconCache_Lookup(xfRailIconCache* cache, UINT8 cacheId, U
  * in ARGB format (e.g., 0xFFFF0000L is opaque red), pixels are in normal,
  * left-to-right top-down order.
  */
-static BOOL convert_rail_icon(const ICON_INFO* iconInfo, xfRailIcon* railIcon)
+static BOOL convert_rail_icon(ICON_INFO* iconInfo, xfRailIcon* railIcon)
 {
 	BYTE* argbPixels = NULL;
 	BYTE* nextPixel;

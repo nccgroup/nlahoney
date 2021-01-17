@@ -39,9 +39,8 @@ static wHashTable* create_channel_ids_map()
 }
 
 /* Proxy context initialization callback */
-static BOOL client_to_proxy_context_new(freerdp_peer* client, rdpContext* ctx)
+static BOOL client_to_proxy_context_new(freerdp_peer* client, pServerContext* context)
 {
-	pServerContext* context = (pServerContext*)ctx;
 	proxyServer* server = (proxyServer*)client->ContextExtra;
 	proxyConfig* config = server->config;
 
@@ -83,9 +82,8 @@ error:
 }
 
 /* Proxy context free callback */
-static void client_to_proxy_context_free(freerdp_peer* client, rdpContext* ctx)
+static void client_to_proxy_context_free(freerdp_peer* client, pServerContext* context)
 {
-	pServerContext* context = (pServerContext*)ctx;
 	proxyServer* server;
 
 	if (!client || !context)
@@ -108,29 +106,23 @@ static void client_to_proxy_context_free(freerdp_peer* client, rdpContext* ctx)
 BOOL pf_context_init_server_context(freerdp_peer* client)
 {
 	client->ContextSize = sizeof(pServerContext);
-	client->ContextNew = client_to_proxy_context_new;
-	client->ContextFree = client_to_proxy_context_free;
+	client->ContextNew = (psPeerContextNew)client_to_proxy_context_new;
+	client->ContextFree = (psPeerContextFree)client_to_proxy_context_free;
 
 	return freerdp_peer_context_new(client);
 }
 
+/*
+ * pf_context_copy_settings copies settings from `src` to `dst`.
+ * when using this function, is_dst_server must be set to TRUE if the destination
+ * settings are server's settings. otherwise, they must be set to FALSE.
+ */
 BOOL pf_context_copy_settings(rdpSettings* dst, const rdpSettings* src)
 {
-	BOOL rc = FALSE;
-	rdpSettings* before_copy;
+	rdpSettings* before_copy = freerdp_settings_clone(dst);
 
-	if (!dst || !src)
-		return FALSE;
-
-	before_copy = freerdp_settings_clone(dst);
 	if (!before_copy)
 		return FALSE;
-
-#define REVERT_STR_VALUE(name)                                          \
-	free(dst->name);                                                    \
-	dst->name = NULL;                                                   \
-	if (before_copy->name && !(dst->name = _strdup(before_copy->name))) \
-	goto out_fail
 
 	if (!freerdp_settings_copy(dst, src))
 	{
@@ -138,22 +130,31 @@ BOOL pf_context_copy_settings(rdpSettings* dst, const rdpSettings* src)
 		return FALSE;
 	}
 
-	/* keep original ServerMode value */
+	free(dst->ConfigPath);
+	free(dst->PrivateKeyContent);
+	free(dst->RdpKeyContent);
+	free(dst->RdpKeyFile);
+	free(dst->PrivateKeyFile);
+	free(dst->CertificateFile);
+	free(dst->CertificateName);
+	free(dst->CertificateContent);
+
+	/* adjust pointer to instance pointer */
 	dst->ServerMode = before_copy->ServerMode;
 
 	/* revert some values that must not be changed */
-	REVERT_STR_VALUE(ConfigPath);
-	REVERT_STR_VALUE(PrivateKeyContent);
-	REVERT_STR_VALUE(RdpKeyContent);
-	REVERT_STR_VALUE(RdpKeyFile);
-	REVERT_STR_VALUE(PrivateKeyFile);
-	REVERT_STR_VALUE(CertificateFile);
-	REVERT_STR_VALUE(CertificateName);
-	REVERT_STR_VALUE(CertificateContent);
+	dst->ConfigPath = _strdup(before_copy->ConfigPath);
+	dst->PrivateKeyContent = _strdup(before_copy->PrivateKeyContent);
+	dst->RdpKeyContent = _strdup(before_copy->RdpKeyContent);
+	dst->RdpKeyFile = _strdup(before_copy->RdpKeyFile);
+	dst->PrivateKeyFile = _strdup(before_copy->PrivateKeyFile);
+	dst->CertificateFile = _strdup(before_copy->CertificateFile);
+	dst->CertificateName = _strdup(before_copy->CertificateName);
+	dst->CertificateContent = _strdup(before_copy->CertificateContent);
 
 	if (!dst->ServerMode)
 	{
-		/* adjust instance pointer */
+		/* adjust instance pointer for client's context */
 		dst->instance = before_copy->instance;
 
 		/*
@@ -167,11 +168,8 @@ BOOL pf_context_copy_settings(rdpSettings* dst, const rdpSettings* src)
 		dst->RdpServerRsaKey = NULL;
 	}
 
-	rc = TRUE;
-
-out_fail:
 	freerdp_settings_free(before_copy);
-	return rc;
+	return TRUE;
 }
 
 pClientContext* pf_context_create_client_context(rdpSettings* clientSettings)
@@ -203,41 +201,44 @@ error:
 proxyData* proxy_data_new(void)
 {
 	BYTE temp[16];
-	char* hex;
-	proxyData* pdata;
+	proxyData* pdata = calloc(1, sizeof(proxyData));
 
-	pdata = calloc(1, sizeof(proxyData));
-	if (!pdata)
+	if (pdata == NULL)
+	{
 		return NULL;
+	}
 
 	if (!(pdata->abort_event = CreateEvent(NULL, TRUE, FALSE, NULL)))
-		goto error;
+	{
+		proxy_data_free(pdata);
+		return NULL;
+	}
 
 	if (!(pdata->gfx_server_ready = CreateEvent(NULL, TRUE, FALSE, NULL)))
-		goto error;
+	{
+		proxy_data_free(pdata);
+		return NULL;
+	}
 
 	winpr_RAND((BYTE*)&temp, 16);
-	hex = winpr_BinToHexString(temp, 16, FALSE);
-	if (!hex)
-		goto error;
-
-	CopyMemory(pdata->session_id, hex, PROXY_SESSION_ID_LENGTH);
-	pdata->session_id[PROXY_SESSION_ID_LENGTH] = '\0';
-	free(hex);
+	if (!(pdata->session_id = winpr_BinToHexString(temp, 16, FALSE)))
+	{
+		proxy_data_free(pdata);
+		return NULL;
+	}
 
 	if (!(pdata->modules_info = HashTable_New(FALSE)))
-		goto error;
+	{
+		proxy_data_free(pdata);
+		return NULL;
+	}
 
 	/* modules_info maps between plugin name to custom data */
 	pdata->modules_info->hash = HashTable_StringHash;
 	pdata->modules_info->keyCompare = HashTable_StringCompare;
 	pdata->modules_info->keyClone = HashTable_StringClone;
 	pdata->modules_info->keyFree = HashTable_StringFree;
-
 	return pdata;
-error:
-	proxy_data_free(pdata);
-	return NULL;
 }
 
 /* updates circular pointers between proxyData and pClientContext instances */
@@ -273,6 +274,9 @@ void proxy_data_free(proxyData* pdata)
 		CloseHandle(pdata->gfx_server_ready);
 		pdata->gfx_server_ready = NULL;
 	}
+
+	if (pdata->session_id)
+		free(pdata->session_id);
 
 	if (pdata->modules_info)
 		HashTable_Free(pdata->modules_info);

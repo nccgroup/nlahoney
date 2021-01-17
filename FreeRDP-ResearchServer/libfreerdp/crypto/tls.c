@@ -461,7 +461,6 @@ static int bio_rdp_tls_free(BIO* bio)
 	if (!tls)
 		return 0;
 
-	BIO_set_data(bio, NULL);
 	if (BIO_get_shutdown(bio))
 	{
 		if (BIO_get_init(bio) && tls->ssl)
@@ -476,7 +475,6 @@ static int bio_rdp_tls_free(BIO* bio)
 
 	DeleteCriticalSection(&tls->lock);
 	free(tls);
-
 	return 1;
 }
 

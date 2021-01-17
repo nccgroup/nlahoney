@@ -30,18 +30,17 @@
 
 #define TAG CHANNELS_TAG("drdynvc.client")
 
-static UINT dvcman_close_channel(IWTSVirtualChannelManager* pChannelMgr, UINT32 ChannelId,
-                                 BOOL bSendClosePDU);
 static void dvcman_free(drdynvcPlugin* drdynvc, IWTSVirtualChannelManager* pChannelMgr);
 static void dvcman_channel_free(void* channel);
 static UINT drdynvc_write_data(drdynvcPlugin* drdynvc, UINT32 ChannelId, const BYTE* data,
-                               UINT32 dataSize, BOOL* close);
+                               UINT32 dataSize);
 static UINT drdynvc_send(drdynvcPlugin* drdynvc, wStream* s);
 
 static void dvcman_wtslistener_free(DVCMAN_LISTENER* listener)
 {
 	if (listener)
 		free(listener->channel_name);
+
 	free(listener);
 }
 
@@ -192,7 +191,7 @@ static const char* dvcman_get_channel_name(IWTSVirtualChannel* channel)
 static IWTSVirtualChannel* dvcman_find_channel_by_id(IWTSVirtualChannelManager* pChannelMgr,
                                                      UINT32 ChannelId)
 {
-	size_t index;
+	int index;
 	IWTSVirtualChannel* channel = NULL;
 	DVCMAN* dvcman = (DVCMAN*)pChannelMgr;
 	ArrayList_Lock(dvcman->channels);
@@ -393,6 +392,7 @@ static void dvcman_clear(drdynvcPlugin* drdynvc, IWTSVirtualChannelManager* pCha
 	ArrayList_Clear(dvcman->plugin_names);
 	ArrayList_Clear(dvcman->listeners);
 }
+
 static void dvcman_free(drdynvcPlugin* drdynvc, IWTSVirtualChannelManager* pChannelMgr)
 {
 	DVCMAN* dvcman = (DVCMAN*)pChannelMgr;
@@ -446,7 +446,6 @@ fail:
 static UINT dvcman_write_channel(IWTSVirtualChannel* pChannel, ULONG cbSize, const BYTE* pBuffer,
                                  void* pReserved)
 {
-	BOOL close = FALSE;
 	UINT status;
 	DVCMAN_CHANNEL* channel = (DVCMAN_CHANNEL*)pChannel;
 
@@ -455,12 +454,8 @@ static UINT dvcman_write_channel(IWTSVirtualChannel* pChannel, ULONG cbSize, con
 		return CHANNEL_RC_BAD_CHANNEL;
 
 	EnterCriticalSection(&(channel->lock));
-	status =
-	    drdynvc_write_data(channel->dvcman->drdynvc, channel->channel_id, pBuffer, cbSize, &close);
+	status = drdynvc_write_data(channel->dvcman->drdynvc, channel->channel_id, pBuffer, cbSize);
 	LeaveCriticalSection(&(channel->lock));
-	/* Close delayed, it removes the channel struct */
-	if (close)
-		dvcman_close_channel(channel->dvcman->drdynvc->channel_mgr, channel->channel_id, TRUE);
 	return status;
 }
 
@@ -607,8 +602,8 @@ static UINT dvcman_open_channel(drdynvcPlugin* drdynvc, IWTSVirtualChannelManage
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-UINT dvcman_close_channel(IWTSVirtualChannelManager* pChannelMgr, UINT32 ChannelId,
-                          BOOL bSendClosePDU)
+static UINT dvcman_close_channel(IWTSVirtualChannelManager* pChannelMgr, UINT32 ChannelId,
+                                 BOOL bSendClosePDU)
 {
 	DVCMAN_CHANNEL* channel;
 	UINT error = CHANNEL_RC_OK;
@@ -807,7 +802,7 @@ static UINT drdynvc_send(drdynvcPlugin* drdynvc, wStream* s)
  * @return 0 on success, otherwise a Win32 error code
  */
 static UINT drdynvc_write_data(drdynvcPlugin* drdynvc, UINT32 ChannelId, const BYTE* data,
-                               UINT32 dataSize, BOOL* close)
+                               UINT32 dataSize)
 {
 	wStream* data_out;
 	size_t pos;
@@ -838,7 +833,7 @@ static UINT drdynvc_write_data(drdynvcPlugin* drdynvc, UINT32 ChannelId, const B
 
 	if (dataSize == 0)
 	{
-		*close = TRUE;
+		dvcman_close_channel(drdynvc->channel_mgr, ChannelId, TRUE);
 		Stream_Release(data_out);
 	}
 	else if (dataSize <= CHANNEL_CHUNK_LENGTH - pos)
@@ -1398,23 +1393,15 @@ static DWORD WINAPI drdynvc_virtual_channel_client_thread(LPVOID arg)
 		/* Disconnect remaining dynamic channels that the server did not.
 		 * This is required to properly shut down channels by calling the appropriate
 		 * event handlers. */
-		size_t count = 0;
 		DVCMAN* drdynvcMgr = (DVCMAN*)drdynvc->channel_mgr;
 
-		do
+		while (ArrayList_Count(drdynvcMgr->channels) > 0)
 		{
-			ArrayList_Lock(drdynvcMgr->channels);
-			count = ArrayList_Count(drdynvcMgr->channels);
-			if (count > 0)
-			{
-				IWTSVirtualChannel* channel =
-				    (IWTSVirtualChannel*)ArrayList_GetItem(drdynvcMgr->channels, 0);
-				const UINT32 ChannelId = drdynvc->channel_mgr->GetChannelId(channel);
-				dvcman_close_channel(drdynvc->channel_mgr, ChannelId, FALSE);
-				count--;
-			}
-			ArrayList_Unlock(drdynvcMgr->channels);
-		} while (count > 0);
+			IWTSVirtualChannel* channel =
+			    (IWTSVirtualChannel*)ArrayList_GetItem(drdynvcMgr->channels, 0);
+			const UINT32 ChannelId = drdynvc->channel_mgr->GetChannelId(channel);
+			dvcman_close_channel(drdynvc->channel_mgr, ChannelId, FALSE);
+		}
 	}
 
 	if (error && drdynvc->rdpcontext)
@@ -1442,7 +1429,7 @@ static void drdynvc_queue_object_free(void* obj)
 static UINT drdynvc_virtual_channel_event_initialized(drdynvcPlugin* drdynvc, LPVOID pData,
                                                       UINT32 dataLength)
 {
-	wObject* obj;
+	UINT error = CHANNEL_RC_OK;
 	WINPR_UNUSED(pData);
 	WINPR_UNUSED(dataLength);
 
@@ -1453,18 +1440,17 @@ static UINT drdynvc_virtual_channel_event_initialized(drdynvcPlugin* drdynvc, LP
 
 	if (!drdynvc->queue)
 	{
+		error = CHANNEL_RC_NO_MEMORY;
 		WLog_Print(drdynvc->log, WLOG_ERROR, "MessageQueue_New failed!");
 		goto error;
 	}
 
-	obj = MessageQueue_Object(drdynvc->queue);
-	if (!obj)
-		goto error;
-	obj->fnObjectFree = drdynvc_queue_object_free;
+	drdynvc->queue->object.fnObjectFree = drdynvc_queue_object_free;
 	drdynvc->channel_mgr = dvcman_new(drdynvc);
 
 	if (!drdynvc->channel_mgr)
 	{
+		error = CHANNEL_RC_NO_MEMORY;
 		WLog_Print(drdynvc->log, WLOG_ERROR, "dvcman_new failed!");
 		goto error;
 	}
@@ -1569,6 +1555,7 @@ static UINT drdynvc_virtual_channel_event_disconnected(drdynvcPlugin* drdynvc)
 
 	CloseHandle(drdynvc->thread);
 	drdynvc->thread = NULL;
+
 	status = drdynvc->channelEntryPoints.pVirtualChannelCloseEx(drdynvc->InitHandle,
 	                                                            drdynvc->OpenHandle);
 
@@ -1609,6 +1596,7 @@ static UINT drdynvc_virtual_channel_event_terminated(drdynvcPlugin* drdynvc)
 		dvcman_free(drdynvc, drdynvc->channel_mgr);
 		drdynvc->channel_mgr = NULL;
 	}
+
 	drdynvc->InitHandle = 0;
 	free(drdynvc->context);
 	free(drdynvc);

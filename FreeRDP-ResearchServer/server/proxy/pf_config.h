@@ -34,7 +34,7 @@ struct proxy_config
 	UINT16 Port;
 
 	/* target */
-	BOOL FixedTarget;
+	BOOL UseLoadBalanceInfo;
 	char* TargetHost;
 	UINT16 TargetPort;
 
@@ -65,8 +65,9 @@ struct proxy_config
 	BOOL TextOnly;
 	UINT32 MaxTextLength;
 
-	/* gfx settings */
-	BOOL DecodeGFX;
+	/* session capture */
+	BOOL SessionCapture;
+	char* CapturesDirectory;
 
 	/* modules */
 	char** Modules; /* module file names to load */

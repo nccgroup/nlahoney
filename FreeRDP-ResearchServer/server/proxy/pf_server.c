@@ -59,8 +59,11 @@ static BOOL pf_server_parse_target_from_routing_token(rdpContext* context, char*
 	const char* routing_token = freerdp_nego_get_routing_token(context, &routing_token_length);
 	pServerContext* ps = (pServerContext*)context;
 
-	if (!routing_token)
+	if (routing_token == NULL)
+	{
+		/* no routing token */
 		return FALSE;
+	}
 
 	if ((routing_token_length <= prefix_len) || (routing_token_length >= TARGET_MAX))
 	{
@@ -100,58 +103,22 @@ static BOOL pf_server_get_target_info(rdpContext* context, rdpSettings* settings
                                       proxyConfig* config)
 {
 	pServerContext* ps = (pServerContext*)context;
-	proxyFetchTargetEventInfo ev = { 0 };
 
-	ev.fetch_method = config->FixedTarget ? PROXY_FETCH_TARGET_METHOD_CONFIG
-	                                      : PROXY_FETCH_TARGET_METHOD_LOAD_BALANCE_INFO;
+	LOG_INFO(TAG, ps, "fetching target from %s",
+	         config->UseLoadBalanceInfo ? "load-balance-info" : "config");
 
-	if (!pf_modules_run_filter(FILTER_TYPE_SERVER_FETCH_TARGET_ADDR, ps->pdata, &ev))
-		return FALSE;
+	if (config->UseLoadBalanceInfo)
+		return pf_server_parse_target_from_routing_token(context, &settings->ServerHostname,
+		                                                 &settings->ServerPort);
 
-	switch (ev.fetch_method)
+	/* use hardcoded target info from configuration */
+	if (!(settings->ServerHostname = _strdup(config->TargetHost)))
 	{
-		case PROXY_FETCH_TARGET_METHOD_DEFAULT:
-		case PROXY_FETCH_TARGET_METHOD_LOAD_BALANCE_INFO:
-			return pf_server_parse_target_from_routing_token(context, &settings->ServerHostname,
-			                                                 &settings->ServerPort);
-
-		case PROXY_FETCH_TARGET_METHOD_CONFIG:
-		{
-			settings->ServerPort = config->TargetPort > 0 ? 3389 : settings->ServerPort;
-			settings->ServerHostname = _strdup(config->TargetHost);
-
-			if (!settings->ServerHostname)
-			{
-				LOG_ERR(TAG, ps, "strdup failed!");
-				return FALSE;
-			}
-
-			return TRUE;
-		}
-		case PROXY_FETCH_TARGET_USE_CUSTOM_ADDR:
-		{
-			if (!ev.target_address)
-			{
-				WLog_ERR(TAG, "router: using CUSTOM_ADDR fetch method, but target_address == NULL");
-				return FALSE;
-			}
-
-			settings->ServerHostname = _strdup(ev.target_address);
-			if (!settings->ServerHostname)
-			{
-				LOG_ERR(TAG, ps, "strdup failed!");
-				return FALSE;
-			}
-
-			free(ev.target_address);
-			settings->ServerPort = ev.target_port;
-			return TRUE;
-		}
-		default:
-			WLog_WARN(TAG, "unknown target fetch method: %d", ev.fetch_method);
-			return FALSE;
+		LOG_ERR(TAG, ps, "strdup failed!");
+		return FALSE;
 	}
 
+	settings->ServerPort = config->TargetPort > 0 ? 3389 : settings->ServerPort;
 	return TRUE;
 }
 
@@ -169,27 +136,19 @@ static BOOL pf_server_post_connect(freerdp_peer* peer)
 	pClientContext* pc;
 	rdpSettings* client_settings;
 	proxyData* pdata;
-	char** accepted_channels = NULL;
-	size_t accepted_channels_count;
-	size_t i;
-
 	ps = (pServerContext*)peer->context;
 	pdata = ps->pdata;
 
-	LOG_INFO(TAG, ps, "Accepted client: %s", peer->settings->ClientHostname);
-	accepted_channels = WTSGetAcceptedChannelNames(peer, &accepted_channels_count);
-	if (accepted_channels)
+	if (pdata->config->SessionCapture && !peer->settings->SupportGraphicsPipeline)
 	{
-		for (i = 0; i < accepted_channels_count; i++)
-			LOG_INFO(TAG, ps, "Accepted channel: %s", accepted_channels[i]);
-
-		free(accepted_channels);
+		LOG_ERR(TAG, ps, "Session capture feature is enabled, only accepting connections with GFX");
+		return FALSE;
 	}
 
 	pc = pf_context_create_client_context(peer->settings);
 	if (pc == NULL)
 	{
-		LOG_ERR(TAG, ps, "failed to create client context!");
+		LOG_ERR(TAG, ps, "[%s]: pf_context_create_client_context failed!");
 		return FALSE;
 	}
 
@@ -200,6 +159,7 @@ static BOOL pf_server_post_connect(freerdp_peer* peer)
 
 	if (!pf_server_get_target_info(peer->context, client_settings, pdata->config))
 	{
+
 		LOG_INFO(TAG, ps, "pf_server_get_target_info failed!");
 		return FALSE;
 	}
@@ -213,9 +173,6 @@ static BOOL pf_server_post_connect(freerdp_peer* peer)
 		return FALSE;
 	}
 
-	if (!pf_modules_run_hook(HOOK_TYPE_SERVER_POST_CONNECT, pdata))
-		return FALSE;
-
 	/* Start a proxy's client in it's own thread */
 	if (!(pdata->client_thread = CreateThread(NULL, 0, pf_client_start, pc, 0, NULL)))
 	{
@@ -223,7 +180,7 @@ static BOOL pf_server_post_connect(freerdp_peer* peer)
 		return FALSE;
 	}
 
-	return TRUE;
+	return pf_modules_run_hook(HOOK_TYPE_SERVER_POST_CONNECT, pdata);
 }
 
 static BOOL pf_server_activate(freerdp_peer* peer)
@@ -244,18 +201,10 @@ static BOOL pf_server_receive_channel_data_hook(freerdp_peer* peer, UINT16 chann
 {
 	pServerContext* ps = (pServerContext*)peer->context;
 	pClientContext* pc = ps->pdata->pc;
-	proxyData* pdata = ps->pdata;
+	proxyData* pdata = pc->pdata;
 	proxyConfig* config = pdata->config;
 	size_t i;
 	const char* channel_name = WTSChannelGetName(peer, channelId);
-
-	/*
-	 * client side is not initialized yet, call original callback.
-	 * this is probably a drdynvc message between peer and proxy server,
-	 * which doesn't need to be proxied.
-	 */
-	if (!pc)
-		goto original_cb;
 
 	for (i = 0; i < config->PassthroughCount; i++)
 	{
@@ -279,7 +228,6 @@ static BOOL pf_server_receive_channel_data_hook(freerdp_peer* peer, UINT16 chann
 		}
 	}
 
-original_cb:
 	return server_receive_channel_data_original(peer, channelId, data, size, flags, totalSize);
 }
 
@@ -383,8 +331,7 @@ static DWORD WINAPI pf_server_handle_peer(LPVOID arg)
 	pdata = ps->pdata;
 
 	client->Initialize(client);
-	LOG_INFO(TAG, ps, "new connection: proxy address: %s, client address: %s", pdata->config->Host,
-	         client->hostname);
+	LOG_INFO(TAG, ps, "peer connected: %s", client->hostname);
 	/* Main client event handling loop */
 	ChannelEvent = WTSVirtualChannelManagerGetEventHandle(ps->vcm);
 
@@ -465,7 +412,6 @@ fail:
 	LOG_INFO(TAG, ps, "starting shutdown of connection");
 	LOG_INFO(TAG, ps, "stopping proxy's client");
 	freerdp_client_stop(pc);
-	pf_modules_run_hook(HOOK_TYPE_SERVER_SESSION_END, pdata);
 	LOG_INFO(TAG, ps, "freeing server's channels");
 	pf_server_channels_free(ps);
 	LOG_INFO(TAG, ps, "freeing proxy data");
@@ -582,7 +528,6 @@ static void pf_server_clients_list_client_free(void* obj)
 
 proxyServer* pf_server_new(proxyConfig* config)
 {
-	wObject* obj;
 	proxyServer* server;
 
 	if (!config)
@@ -602,8 +547,7 @@ proxyServer* pf_server_new(proxyConfig* config)
 	if (!server->clients)
 		goto out;
 
-	obj = ArrayList_Object(server->clients);
-	obj->fnObjectFree = pf_server_clients_list_client_free;
+	server->clients->object.fnObjectFree = pf_server_clients_list_client_free;
 
 	server->waitGroup = CountdownEvent_New(0);
 	if (!server->waitGroup)

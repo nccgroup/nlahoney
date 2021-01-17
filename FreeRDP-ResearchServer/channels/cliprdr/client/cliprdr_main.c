@@ -24,7 +24,6 @@
 #include "config.h"
 #endif
 
-#include <winpr/wtypes.h>
 #include <winpr/crt.h>
 #include <winpr/print.h>
 
@@ -120,9 +119,6 @@ static void cliprdr_print_general_capability_flags(UINT32 flags)
 	if (flags & CB_CAN_LOCK_CLIPDATA)
 		WLog_INFO(TAG, "\tCB_CAN_LOCK_CLIPDATA");
 
-	if (flags & CB_HUGE_FILE_SUPPORT_ENABLED)
-		WLog_INFO(TAG, "\tCB_HUGE_FILE_SUPPORT_ENABLED");
-
 	WLog_INFO(TAG, "}");
 }
 #endif
@@ -161,7 +157,6 @@ static UINT cliprdr_process_general_capability(cliprdrPlugin* cliprdr, wStream* 
 	cliprdr->streamFileClipEnabled = (generalFlags & CB_STREAM_FILECLIP_ENABLED);
 	cliprdr->fileClipNoFilePaths = (generalFlags & CB_FILECLIP_NO_FILE_PATHS);
 	cliprdr->canLockClipData = (generalFlags & CB_CAN_LOCK_CLIPDATA);
-	cliprdr->hasHugeFileSupport = (generalFlags & CB_HUGE_FILE_SUPPORT_ENABLED);
 	cliprdr->capabilitiesReceived = TRUE;
 
 	if (!context->custom)
@@ -516,7 +511,7 @@ static UINT cliprdr_order_recv(cliprdrPlugin* cliprdr, wStream* s)
 
 		case CB_UNLOCK_CLIPDATA:
 			if ((error = cliprdr_process_unlock_clipdata(cliprdr, s, dataLen, msgFlags)))
-				WLog_ERR(TAG, "cliprdr_process_unlock_clipdata failed with error %" PRIu32 "!",
+				WLog_ERR(TAG, "cliprdr_process_lock_clipdata failed with error %" PRIu32 "!",
 				         error);
 
 			break;
@@ -575,15 +570,12 @@ static UINT cliprdr_client_capabilities(CliprdrClientContext* context,
 	if (!cliprdr->fileClipNoFilePaths)
 		flags &= ~CB_FILECLIP_NO_FILE_PATHS;
 	if (!cliprdr->canLockClipData)
-		flags &= ~CB_CAN_LOCK_CLIPDATA;
-	if (!cliprdr->hasHugeFileSupport)
-		flags &= ~CB_HUGE_FILE_SUPPORT_ENABLED;
+		flags &= CB_CAN_LOCK_CLIPDATA;
 
 	cliprdr->useLongFormatNames = flags & CB_USE_LONG_FORMAT_NAMES;
 	cliprdr->streamFileClipEnabled = flags & CB_STREAM_FILECLIP_ENABLED;
 	cliprdr->fileClipNoFilePaths = flags & CB_FILECLIP_NO_FILE_PATHS;
 	cliprdr->canLockClipData = flags & CB_CAN_LOCK_CLIPDATA;
-	cliprdr->hasHugeFileSupport = flags & CB_HUGE_FILE_SUPPORT_ENABLED;
 
 	Stream_Write_UINT32(s, flags); /* generalFlags */
 	WLog_Print(cliprdr->log, WLOG_DEBUG, "ClientCapabilities");
@@ -687,7 +679,7 @@ static UINT cliprdr_client_lock_clipboard_data(CliprdrClientContext* context,
 
 	if (!s)
 	{
-		WLog_ERR(TAG, "cliprdr_packet_lock_clipdata_new failed!");
+		WLog_ERR(TAG, "cliprdr_packet_new failed!");
 		return ERROR_INTERNAL_ERROR;
 	}
 
@@ -711,7 +703,7 @@ cliprdr_client_unlock_clipboard_data(CliprdrClientContext* context,
 
 	if (!s)
 	{
-		WLog_ERR(TAG, "cliprdr_packet_unlock_clipdata_new failed!");
+		WLog_ERR(TAG, "cliprdr_packet_new failed!");
 		return ERROR_INTERNAL_ERROR;
 	}
 
@@ -782,18 +774,6 @@ cliprdr_client_file_contents_request(CliprdrClientContext* context,
 	wStream* s;
 	cliprdrPlugin* cliprdr = (cliprdrPlugin*)context->handle;
 
-	if (!cliprdr)
-		return ERROR_INTERNAL_ERROR;
-
-	if (!cliprdr->hasHugeFileSupport)
-	{
-		if (((UINT64)fileContentsRequest->cbRequested + fileContentsRequest->nPositionLow) >
-		    UINT32_MAX)
-			return ERROR_INVALID_PARAMETER;
-		if (fileContentsRequest->nPositionHigh != 0)
-			return ERROR_INVALID_PARAMETER;
-	}
-
 	s = cliprdr_packet_file_contents_request_new(fileContentsRequest);
 
 	if (!s)
@@ -822,7 +802,7 @@ cliprdr_client_file_contents_response(CliprdrClientContext* context,
 
 	if (!s)
 	{
-		WLog_ERR(TAG, "cliprdr_packet_file_contents_response_new failed!");
+		WLog_ERR(TAG, "cliprdr_packet_new failed!");
 		return ERROR_INTERNAL_ERROR;
 	}
 

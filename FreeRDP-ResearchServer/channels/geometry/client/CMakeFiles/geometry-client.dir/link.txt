@@ -1,2 +1,0 @@
-/usr/bin/ar qc libgeometry-client.a  CMakeFiles/geometry-client.dir/geometry_main.c.o
-/usr/bin/ranlib libgeometry-client.a

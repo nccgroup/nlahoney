@@ -1,2 +1,0 @@
-/usr/bin/ar qc librdpsnd-client-alsa.a  CMakeFiles/rdpsnd-client-alsa.dir/rdpsnd_alsa.c.o
-/usr/bin/ranlib librdpsnd-client-alsa.a

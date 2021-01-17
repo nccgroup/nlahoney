@@ -1,2 +1,0 @@
-/usr/bin/ar qc libsmartcard-client.a  CMakeFiles/smartcard-client.dir/smartcard_main.c.o CMakeFiles/smartcard-client.dir/smartcard_pack.c.o CMakeFiles/smartcard-client.dir/smartcard_operations.c.o
-/usr/bin/ranlib libsmartcard-client.a

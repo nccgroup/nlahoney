@@ -71,28 +71,28 @@ static BOOL proxy_parse_uri(rdpSettings* settings, const char* uri);
 BOOL proxy_prepare(rdpSettings* settings, const char** lpPeerHostname, UINT16* lpPeerPort,
                    const char** lpProxyUsername, const char** lpProxyPassword)
 {
-	if (freerdp_settings_get_uint32(settings, FreeRDP_ProxyType) == PROXY_TYPE_IGNORE)
+	if (settings->ProxyType == PROXY_TYPE_IGNORE)
 		return FALSE;
 
 	/* For TSGateway, find the system HTTPS proxy automatically */
-	if (freerdp_settings_get_uint32(settings, FreeRDP_ProxyType) == PROXY_TYPE_NONE)
+	if (settings->ProxyType == PROXY_TYPE_NONE)
 		proxy_read_environment(settings, "https_proxy");
 
-	if (freerdp_settings_get_uint32(settings, FreeRDP_ProxyType) == PROXY_TYPE_NONE)
+	if (settings->ProxyType == PROXY_TYPE_NONE)
 		proxy_read_environment(settings, "HTTPS_PROXY");
 
-	if (freerdp_settings_get_uint32(settings, FreeRDP_ProxyType) != PROXY_TYPE_NONE)
+	if (settings->ProxyType != PROXY_TYPE_NONE)
 		proxy_read_environment(settings, "no_proxy");
 
-	if (freerdp_settings_get_uint32(settings, FreeRDP_ProxyType) != PROXY_TYPE_NONE)
+	if (settings->ProxyType != PROXY_TYPE_NONE)
 		proxy_read_environment(settings, "NO_PROXY");
 
-	if (freerdp_settings_get_uint32(settings, FreeRDP_ProxyType) != PROXY_TYPE_NONE)
+	if (settings->ProxyType != PROXY_TYPE_NONE)
 	{
-		*lpPeerHostname = freerdp_settings_get_string(settings, FreeRDP_ProxyHostname);
-		*lpPeerPort = freerdp_settings_get_uint16(settings, FreeRDP_ProxyPort);
-		*lpProxyUsername = freerdp_settings_get_string(settings, FreeRDP_ProxyUsername);
-		*lpProxyPassword = freerdp_settings_get_string(settings, FreeRDP_ProxyPassword);
+		*lpPeerHostname = settings->ProxyHostname;
+		*lpPeerPort = settings->ProxyPort;
+		*lpProxyUsername = settings->ProxyUsername;
+		*lpProxyPassword = settings->ProxyPassword;
 		return TRUE;
 	}
 
@@ -274,10 +274,9 @@ void proxy_read_environment(rdpSettings* settings, char* envname)
 		{
 			if (check_no_proxy(settings, env))
 			{
-				WLog_INFO(TAG, "deactivating proxy: %s [%s=%s]",
-				          freerdp_settings_get_string(settings, FreeRDP_ServerHostname), envname,
+				WLog_INFO(TAG, "deactivating proxy: %s [%s=%s]", settings->ServerHostname, envname,
 				          env);
-				freerdp_settings_set_uint32(settings, FreeRDP_ProxyType, PROXY_TYPE_NONE);
+				settings->ProxyType = PROXY_TYPE_NONE;
 			}
 		}
 		else
@@ -289,38 +288,31 @@ void proxy_read_environment(rdpSettings* settings, char* envname)
 	free(env);
 }
 
-BOOL proxy_parse_uri(rdpSettings* settings, const char* uri_in)
+BOOL proxy_parse_uri(rdpSettings* settings, const char* uri)
 {
-	BOOL rc = FALSE;
-	char *hostname, *pport;
+	const char *hostname, *pport;
 	const char* protocol;
-	char* p;
+	const char* p;
 	UINT16 port;
-	char* uri_copy = _strdup(uri_in);
-	char* uri = uri_copy;
-	if (!uri)
-		return FALSE;
+	int hostnamelen;
 	p = strstr(uri, "://");
 
 	if (p)
 	{
 		if (p == uri + 4 && !strncmp("http", uri, 4))
 		{
-			if (!freerdp_settings_set_uint32(settings, FreeRDP_ProxyType, PROXY_TYPE_HTTP))
-				goto fail;
-
+			settings->ProxyType = PROXY_TYPE_HTTP;
 			protocol = "http";
 		}
 		else if (p == uri + 6 && !strncmp("socks5", uri, 6))
 		{
-			if (!freerdp_settings_set_uint32(settings, FreeRDP_ProxyType, PROXY_TYPE_SOCKS))
-				goto fail;
+			settings->ProxyType = PROXY_TYPE_SOCKS;
 			protocol = "socks5";
 		}
 		else
 		{
 			WLog_ERR(TAG, "Only HTTP and SOCKS5 proxies supported by now");
-			goto fail;
+			return FALSE;
 		}
 
 		uri = p + 3;
@@ -328,7 +320,7 @@ BOOL proxy_parse_uri(rdpSettings* settings, const char* uri_in)
 	else
 	{
 		WLog_ERR(TAG, "No scheme in proxy URI");
-		goto fail;
+		return FALSE;
 	}
 
 	hostname = uri;
@@ -353,28 +345,33 @@ BOOL proxy_parse_uri(rdpSettings* settings, const char* uri_in)
 	}
 
 	if (pport)
-		*pport = '\0';
+	{
+		hostnamelen = pport - hostname;
+	}
+	else
+	{
+		hostnamelen = strlen(hostname);
+	}
 
-	if (!freerdp_settings_set_string(settings, FreeRDP_ProxyHostname, hostname))
-		goto fail;
+	settings->ProxyHostname = calloc(hostnamelen + 1, 1);
 
-	if (!freerdp_settings_set_uint16(settings, FreeRDP_ProxyPort, port))
-		goto fail;
+	if (!settings->ProxyHostname)
+	{
+		WLog_ERR(TAG, "Not enough memory");
+		return FALSE;
+	}
 
-	WLog_INFO(TAG, "Parsed proxy configuration: %s://%s:%d", protocol,
-	          freerdp_settings_get_string(settings, FreeRDP_ProxyHostname),
-	          freerdp_settings_get_uint16(settings, FreeRDP_ProxyPort));
-	rc = TRUE;
-
-fail:
-	free(uri_copy);
-	return rc;
+	memcpy(settings->ProxyHostname, hostname, hostnamelen);
+	settings->ProxyPort = port;
+	WLog_INFO(TAG, "Parsed proxy configuration: %s://%s:%d", protocol, settings->ProxyHostname,
+	          settings->ProxyPort);
+	return TRUE;
 }
 
 BOOL proxy_connect(rdpSettings* settings, BIO* bufferedBio, const char* proxyUsername,
                    const char* proxyPassword, const char* hostname, UINT16 port)
 {
-	switch (freerdp_settings_get_uint32(settings, FreeRDP_ProxyType))
+	switch (settings->ProxyType)
 	{
 		case PROXY_TYPE_NONE:
 		case PROXY_TYPE_IGNORE:

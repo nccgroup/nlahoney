@@ -306,8 +306,7 @@ static UINT wlf_cliprdr_send_client_capabilities(wfClipboard* clipboard)
 	generalCapabilitySet.generalFlags = CB_USE_LONG_FORMAT_NAMES;
 
 	if (clipboard->streams_supported && clipboard->file_formats_registered)
-		generalCapabilitySet.generalFlags |=
-		    CB_STREAM_FILECLIP_ENABLED | CB_FILECLIP_NO_FILE_PATHS | CB_HUGE_FILE_SUPPORT_ENABLED;
+		generalCapabilitySet.generalFlags |= CB_STREAM_FILECLIP_ENABLED | CB_FILECLIP_NO_FILE_PATHS;
 
 	return clipboard->context->ClientCapabilities(clipboard->context, &capabilities);
 }

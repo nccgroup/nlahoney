@@ -1,2 +1,0 @@
-/usr/bin/ar qc liburbdrc-client-libusb.a  CMakeFiles/urbdrc-client-libusb.dir/libusb_udevman.c.o CMakeFiles/urbdrc-client-libusb.dir/libusb_udevice.c.o
-/usr/bin/ranlib liburbdrc-client-libusb.a

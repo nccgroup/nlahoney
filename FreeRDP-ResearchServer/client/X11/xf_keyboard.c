@@ -43,20 +43,11 @@
 #include <freerdp/log.h>
 #define TAG CLIENT_TAG("x11")
 
-static BOOL xf_sync_kbd_state(xfContext* xfc)
-{
-	const UINT32 syncFlags = xf_keyboard_get_toggle_keys_state(xfc);
-	return freerdp_input_send_synchronize_event(xfc->context.input, syncFlags);
-}
-
-static void xf_keyboard_clear(xfContext* xfc)
-{
-	ZeroMemory(xfc->KeyboardState, 256 * sizeof(BOOL));
-}
+static BOOL firstPressRightCtrl = TRUE;
+static BOOL ungrabKeyboardWithRightCtrl = TRUE;
 
 static BOOL xf_keyboard_action_script_init(xfContext* xfc)
 {
-	wObject* obj;
 	FILE* keyScript;
 	char* keyCombination;
 	char buffer[1024] = { 0 };
@@ -71,10 +62,7 @@ static BOOL xf_keyboard_action_script_init(xfContext* xfc)
 	if (!xfc->keyCombinations)
 		return FALSE;
 
-	obj = ArrayList_Object(xfc->keyCombinations);
-	if (!obj)
-		return FALSE;
-	obj->fnObjectFree = free;
+	ArrayList_Object(xfc->keyCombinations)->fnObjectFree = free;
 	sprintf_s(command, sizeof(command), "%s key", xfc->context.settings->ActionScript);
 	keyScript = popen(command, "r");
 
@@ -143,6 +131,11 @@ void xf_keyboard_free(xfContext* xfc)
 	xf_keyboard_action_script_free(xfc);
 }
 
+void xf_keyboard_clear(xfContext* xfc)
+{
+	ZeroMemory(xfc->KeyboardState, 256 * sizeof(BOOL));
+}
+
 void xf_keyboard_key_press(xfContext* xfc, BYTE keycode, KeySym keysym)
 {
 	if (keycode < 8)
@@ -186,7 +179,6 @@ void xf_keyboard_release_all_keypress(xfContext* xfc)
 			xfc->KeyboardState[keycode] = FALSE;
 		}
 	}
-	xf_sync_kbd_state(xfc);
 }
 
 BOOL xf_keyboard_key_pressed(xfContext* xfc, KeySym keysym)
@@ -224,7 +216,9 @@ void xf_keyboard_send_key(xfContext* xfc, BOOL down, BYTE keycode)
 
 		if ((rdp_scancode == RDP_SCANCODE_CAPSLOCK) && (down == FALSE))
 		{
-			xf_sync_kbd_state(xfc);
+			UINT32 syncFlags;
+			syncFlags = xf_keyboard_get_toggle_keys_state(xfc);
+			input->SynchronizeEvent(input, syncFlags);
 		}
 	}
 }
@@ -355,7 +349,7 @@ void xf_keyboard_focus_in(xfContext* xfc)
 
 	input = xfc->context.input;
 	syncFlags = xf_keyboard_get_toggle_keys_state(xfc);
-	freerdp_input_send_focus_in_event(input, syncFlags);
+	input->FocusInEvent(input, syncFlags);
 	xk_keyboard_update_modifier_keys(xfc);
 
 	/* finish with a mouse pointer position like mstsc.exe if required */
@@ -368,7 +362,7 @@ void xf_keyboard_focus_in(xfContext* xfc)
 		if (x >= 0 && x < xfc->window->width && y >= 0 && y < xfc->window->height)
 		{
 			xf_event_adjust_coordinates(xfc, &x, &y);
-			freerdp_input_send_mouse_event(input, PTR_FLAGS_MOVE, x, y);
+			input->MouseEvent(input, PTR_FLAGS_MOVE, x, y);
 		}
 	}
 }
@@ -479,18 +473,18 @@ BOOL xf_keyboard_handle_special_keys(xfContext* xfc, KeySym keysym)
 	// do not return anything such that the key could be used by client if ungrab is not the goal
 	if (keysym == XK_Control_R)
 	{
-		if (mod.RightCtrl && xfc->firstPressRightCtrl)
+		if (mod.RightCtrl && firstPressRightCtrl)
 		{
 			// Right Ctrl is pressed, getting ready to ungrab
-			xfc->ungrabKeyboardWithRightCtrl = TRUE;
-			xfc->firstPressRightCtrl = FALSE;
+			ungrabKeyboardWithRightCtrl = TRUE;
+			firstPressRightCtrl = FALSE;
 		}
 	}
 	else
 	{
 		// some other key has been pressed, abort ungrabbing
-		if (xfc->ungrabKeyboardWithRightCtrl)
-			xfc->ungrabKeyboardWithRightCtrl = FALSE;
+		if (ungrabKeyboardWithRightCtrl)
+			ungrabKeyboardWithRightCtrl = FALSE;
 	}
 
 	if (!xf_keyboard_execute_action_script(xfc, &mod, keysym))
@@ -609,9 +603,9 @@ void xf_keyboard_handle_special_keys_release(xfContext* xfc, KeySym keysym)
 	if (keysym != XK_Control_R)
 		return;
 
-	xfc->firstPressRightCtrl = TRUE;
+	firstPressRightCtrl = TRUE;
 
-	if (!xfc->ungrabKeyboardWithRightCtrl)
+	if (!ungrabKeyboardWithRightCtrl)
 		return;
 
 	// all requirements for ungrab are fulfilled, ungrabbing now
@@ -630,7 +624,7 @@ void xf_keyboard_handle_special_keys_release(xfContext* xfc, KeySym keysym)
 	}
 
 	// ungrabbed
-	xfc->ungrabKeyboardWithRightCtrl = FALSE;
+	ungrabKeyboardWithRightCtrl = FALSE;
 }
 
 BOOL xf_keyboard_set_indicators(rdpContext* context, UINT16 led_flags)

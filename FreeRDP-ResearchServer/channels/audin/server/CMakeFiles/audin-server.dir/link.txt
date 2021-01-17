@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaudin-server.a  CMakeFiles/audin-server.dir/audin.c.o
-/usr/bin/ranlib libaudin-server.a

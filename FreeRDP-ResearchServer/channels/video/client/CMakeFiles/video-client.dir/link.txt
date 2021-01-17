@@ -1,2 +1,0 @@
-/usr/bin/ar qc libvideo-client.a  CMakeFiles/video-client.dir/video_main.c.o
-/usr/bin/ranlib libvideo-client.a

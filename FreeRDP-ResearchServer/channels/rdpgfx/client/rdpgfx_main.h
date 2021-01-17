@@ -85,7 +85,6 @@ struct _RDPGFX_PLUGIN
 	wLog* log;
 	RDPGFX_CAPSET ConnectionCaps;
 	BOOL SendQoeAck;
-	BOOL initialized;
 };
 typedef struct _RDPGFX_PLUGIN RDPGFX_PLUGIN;
 

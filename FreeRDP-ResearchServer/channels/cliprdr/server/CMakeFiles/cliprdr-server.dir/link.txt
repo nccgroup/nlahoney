@@ -1,2 +1,0 @@
-/usr/bin/ar qc libcliprdr-server.a  CMakeFiles/cliprdr-server.dir/cliprdr_main.c.o CMakeFiles/cliprdr-server.dir/__/cliprdr_common.c.o
-/usr/bin/ranlib libcliprdr-server.a

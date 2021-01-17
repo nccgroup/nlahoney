@@ -31,7 +31,6 @@
 
 #include "echo_main.h"
 #include <freerdp/channels/log.h>
-#include <freerdp/channels/echo.h>
 
 #define TAG CHANNELS_TAG("echo.client")
 
@@ -61,7 +60,6 @@ struct _ECHO_PLUGIN
 
 	ECHO_LISTENER_CALLBACK* listener_callback;
 	IWTSListener* listener;
-	BOOL initialized;
 };
 
 /**
@@ -131,13 +129,8 @@ static UINT echo_on_new_channel_connection(IWTSListenerCallback* pListenerCallba
  */
 static UINT echo_plugin_initialize(IWTSPlugin* pPlugin, IWTSVirtualChannelManager* pChannelMgr)
 {
-	UINT status;
 	ECHO_PLUGIN* echo = (ECHO_PLUGIN*)pPlugin;
-	if (echo->initialized)
-	{
-		WLog_ERR(TAG, "[%s] channel initialized twice, aborting", ECHO_DVC_CHANNEL_NAME);
-		return ERROR_INVALID_DATA;
-	}
+
 	echo->listener_callback = (ECHO_LISTENER_CALLBACK*)calloc(1, sizeof(ECHO_LISTENER_CALLBACK));
 
 	if (!echo->listener_callback)
@@ -150,11 +143,8 @@ static UINT echo_plugin_initialize(IWTSPlugin* pPlugin, IWTSVirtualChannelManage
 	echo->listener_callback->plugin = pPlugin;
 	echo->listener_callback->channel_mgr = pChannelMgr;
 
-	status = pChannelMgr->CreateListener(pChannelMgr, ECHO_DVC_CHANNEL_NAME, 0,
-	                                     &echo->listener_callback->iface, &echo->listener);
-
-	echo->initialized = status == CHANNEL_RC_OK;
-	return status;
+	return pChannelMgr->CreateListener(pChannelMgr, "ECHO", 0, &echo->listener_callback->iface,
+	                                   &echo->listener);
 }
 
 /**

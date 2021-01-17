@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaudin-client-oss.a  CMakeFiles/audin-client-oss.dir/audin_oss.c.o
-/usr/bin/ranlib libaudin-client-oss.a

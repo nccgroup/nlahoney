@@ -106,7 +106,6 @@ static void threads_close(void* thread)
 static BOOL InitializeThreadpool(PTP_POOL pool)
 {
 	int index;
-	wObject* obj;
 	HANDLE thread;
 
 	if (pool->Threads)
@@ -127,8 +126,7 @@ static BOOL InitializeThreadpool(PTP_POOL pool)
 	if (!(pool->Threads = ArrayList_New(TRUE)))
 		goto fail_thread_array;
 
-	obj = ArrayList_Object(pool->Threads);
-	obj->fnObjectFree = threads_close;
+	pool->Threads->object.fnObjectFree = threads_close;
 
 	for (index = 0; index < 4; index++)
 	{

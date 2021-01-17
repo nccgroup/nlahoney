@@ -30,7 +30,6 @@ typedef struct rdp_channels rdpChannels;
 typedef struct rdp_graphics rdpGraphics;
 typedef struct rdp_metrics rdpMetrics;
 typedef struct rdp_codecs rdpCodecs;
-typedef struct rdp_transport rdpTransport; /* Opaque */
 
 typedef struct rdp_freerdp freerdp;
 typedef struct rdp_context rdpContext;
@@ -70,10 +69,6 @@ extern "C"
 #define VERIFY_CERT_FLAG_CHANGED 0x40
 #define VERIFY_CERT_FLAG_MISMATCH 0x80
 #define VERIFY_CERT_FLAG_MATCH_LEGACY_SHA1 0x100
-
-/* Message types used by gateway messaging callback */
-#define GATEWAY_MESSAGE_CONSENT 1
-#define GATEWAY_MESSAGE_SERVICE 2
 
 	typedef BOOL (*pContextNew)(freerdp* instance, rdpContext* context);
 	typedef void (*pContextFree)(freerdp* instance, rdpContext* context);
@@ -188,7 +183,6 @@ extern "C"
 	typedef BOOL (*pReceiveChannelData)(freerdp* instance, UINT16 channelId, const BYTE* data,
 	                                    size_t size, UINT32 flags, size_t totalSize);
 
-	/* type can be one of the GATEWAY_MESSAGE_ type defines */
 	typedef BOOL (*pPresentGatewayMessage)(freerdp* instance, UINT32 type, BOOL isDisplayMandatory,
 	                                       BOOL isConsentMandatory, size_t length,
 	                                       const WCHAR* message);
@@ -435,6 +429,20 @@ extern "C"
 
 	FREERDP_API BOOL freerdp_disconnect_before_reconnect(freerdp* instance);
 	FREERDP_API BOOL freerdp_reconnect(freerdp* instance);
+
+	FREERDP_API UINT freerdp_channel_add_init_handle_data(rdpChannelHandles* handles,
+	                                                      void* pInitHandle, void* pUserData);
+	FREERDP_API void* freerdp_channel_get_init_handle_data(rdpChannelHandles* handles,
+	                                                       void* pInitHandle);
+	FREERDP_API void freerdp_channel_remove_init_handle_data(rdpChannelHandles* handles,
+	                                                         void* pInitHandle);
+
+	FREERDP_API UINT freerdp_channel_add_open_handle_data(rdpChannelHandles* handles,
+	                                                      DWORD openHandle, void* pUserData);
+	FREERDP_API void* freerdp_channel_get_open_handle_data(rdpChannelHandles* handles,
+	                                                       DWORD openHandle);
+	FREERDP_API void freerdp_channel_remove_open_handle_data(rdpChannelHandles* handles,
+	                                                         DWORD openHandle);
 
 	FREERDP_API UINT freerdp_channels_attach(freerdp* instance);
 	FREERDP_API UINT freerdp_channels_detach(freerdp* instance);

@@ -29,6 +29,8 @@ typedef enum
 	TRANSPORT_LAYER_CLOSED
 } TRANSPORT_LAYER;
 
+typedef struct rdp_transport rdpTransport;
+
 #include "tcp.h"
 #include "nla.h"
 
@@ -48,7 +50,6 @@ typedef enum
 #include <time.h>
 #include <freerdp/types.h>
 #include <freerdp/settings.h>
-#include <freerdp/transport_io.h>
 
 typedef int (*TransportRecv)(rdpTransport* transport, wStream* stream, void* extra);
 
@@ -76,7 +77,6 @@ struct rdp_transport
 	HANDLE rereadEvent;
 	BOOL haveMoreBytesToRead;
 	wLog* log;
-	rdpTransportIo io;
 };
 
 FREERDP_LOCAL wStream* transport_send_stream_init(rdpTransport* transport, int size);
@@ -109,9 +109,6 @@ FREERDP_LOCAL int transport_drain_output_buffer(rdpTransport* transport);
 FREERDP_LOCAL wStream* transport_receive_pool_take(rdpTransport* transport);
 FREERDP_LOCAL int transport_receive_pool_return(rdpTransport* transport, wStream* pdu);
 
-FREERDP_LOCAL const rdpTransportIo* transport_get_io_callbacks(rdpTransport* transport);
-FREERDP_LOCAL BOOL transport_set_io_callbacks(rdpTransport* transport,
-                                              const rdpTransportIo* io_callbacks);
 FREERDP_LOCAL rdpTransport* transport_new(rdpContext* context);
 FREERDP_LOCAL void transport_free(rdpTransport* transport);
 

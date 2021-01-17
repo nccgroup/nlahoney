@@ -1,2 +1,0 @@
-/usr/bin/ar qc librdpgfx-client.a  CMakeFiles/rdpgfx-client.dir/rdpgfx_main.c.o CMakeFiles/rdpgfx-client.dir/rdpgfx_codec.c.o CMakeFiles/rdpgfx-client.dir/__/rdpgfx_common.c.o
-/usr/bin/ranlib librdpgfx-client.a

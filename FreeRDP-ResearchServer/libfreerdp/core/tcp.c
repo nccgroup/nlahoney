@@ -30,8 +30,6 @@
 #include <winpr/platform.h>
 #include <winpr/winsock.h>
 
-#include "rdp.h"
-
 #if !defined(_WIN32)
 
 #include <netdb.h>
@@ -1063,18 +1061,6 @@ static BOOL freerdp_tcp_set_keep_alive_mode(const rdpSettings* settings, int soc
 
 int freerdp_tcp_connect(rdpContext* context, rdpSettings* settings, const char* hostname, int port,
                         DWORD timeout)
-{
-	rdpTransport* transport;
-	if (!context || !context->rdp)
-		return -1;
-	transport = context->rdp->transport;
-	if (!transport)
-		return -1;
-	return IFCALLRESULT(-1, transport->io.TCPConnect, context, settings, hostname, port, timeout);
-}
-
-int freerdp_tcp_default_connect(rdpContext* context, rdpSettings* settings, const char* hostname,
-                                int port, DWORD timeout)
 {
 	int sockfd;
 	UINT32 optval;

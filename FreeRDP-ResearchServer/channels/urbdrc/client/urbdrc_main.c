@@ -621,12 +621,6 @@ static UINT urbdrc_on_close(IWTSVirtualChannelCallback* pChannelCallback)
 				UINT32 control = callback->channel_mgr->GetChannelId(callback->channel);
 				if (udevman->controlChannelId == control)
 					udevman->status |= URBDRC_DEVICE_CHANNEL_CLOSED;
-				else
-				{ /* Need to notify the local backend the device is gone */
-					IUDEVICE* pdev = udevman->get_udevice_by_ChannelID(udevman, control);
-					if (pdev)
-						pdev->markChannelClosed(pdev);
-				}
 			}
 		}
 	}
@@ -679,11 +673,6 @@ static UINT urbdrc_plugin_initialize(IWTSPlugin* pPlugin, IWTSVirtualChannelMana
 	if (!urbdrc || !urbdrc->udevman)
 		return ERROR_INVALID_PARAMETER;
 
-	if (urbdrc->initialized)
-	{
-		WLog_ERR(TAG, "[%s] channel initialized twice, aborting", URBDRC_CHANNEL_NAME);
-		return ERROR_INVALID_DATA;
-	}
 	udevman = urbdrc->udevman;
 	urbdrc->listener_callback =
 	    (URBDRC_LISTENER_CALLBACK*)calloc(1, sizeof(URBDRC_LISTENER_CALLBACK));
@@ -702,12 +691,10 @@ static UINT urbdrc_plugin_initialize(IWTSPlugin* pPlugin, IWTSVirtualChannelMana
 	if (status != CHANNEL_RC_OK)
 		return status;
 
-	status = CHANNEL_RC_OK;
 	if (udevman->listener_created_callback)
-		status = udevman->listener_created_callback(udevman);
+		return udevman->listener_created_callback(udevman);
 
-	urbdrc->initialized = status == CHANNEL_RC_OK;
-	return status;
+	return CHANNEL_RC_OK;
 }
 
 /**

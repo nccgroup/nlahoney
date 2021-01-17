@@ -167,7 +167,6 @@ static const char* x11_event_string(int event)
 
 BOOL xf_event_action_script_init(xfContext* xfc)
 {
-	wObject* obj;
 	char* xevent;
 	FILE* actionScript;
 	char buffer[1024] = { 0 };
@@ -177,10 +176,7 @@ BOOL xf_event_action_script_init(xfContext* xfc)
 	if (!xfc->xevents)
 		return FALSE;
 
-	obj = ArrayList_Object(xfc->xevents);
-	if (!obj)
-		return FALSE;
-	obj->fnObjectFree = free;
+	ArrayList_Object(xfc->xevents)->fnObjectFree = free;
 	sprintf_s(command, sizeof(command), "%s xevent", xfc->context.settings->ActionScript);
 	actionScript = popen(command, "r");
 
@@ -507,10 +503,6 @@ static BOOL xf_event_FocusIn(xfContext* xfc, const XFocusInEvent* event, BOOL ap
 		              CurrentTime);
 	}
 
-	/* Release all keys, should already be done at FocusOut but might be missed
-	 * if the WM decided to use an alternate event order */
-	xf_keyboard_release_all_keypress(xfc);
-
 	if (app)
 	{
 		xfAppWindow* appWindow;
@@ -540,6 +532,7 @@ static BOOL xf_event_FocusOut(xfContext* xfc, const XFocusOutEvent* event, BOOL 
 		XUngrabKeyboard(xfc->display, CurrentTime);
 
 	xf_keyboard_release_all_keypress(xfc);
+	xf_keyboard_clear(xfc);
 
 	if (app)
 		xf_rail_send_activate(xfc, event->window, FALSE);

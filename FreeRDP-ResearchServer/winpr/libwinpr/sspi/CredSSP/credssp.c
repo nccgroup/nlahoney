@@ -27,9 +27,6 @@
 #include "credssp.h"
 
 #include "../sspi.h"
-#include "../log.h"
-
-#define TAG WINPR_TAG("sspi.CredSSP")
 
 static const char* CREDSSP_PACKAGE_NAME = "CredSSP";
 
@@ -38,7 +35,6 @@ static SECURITY_STATUS SEC_ENTRY credssp_InitializeSecurityContextW(
     ULONG Reserved1, ULONG TargetDataRep, PSecBufferDesc pInput, ULONG Reserved2,
     PCtxtHandle phNewContext, PSecBufferDesc pOutput, PULONG pfContextAttr, PTimeStamp ptsExpiry)
 {
-	WLog_ERR(TAG, "[%s]: TODO: Implement", __FUNCTION__);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -98,7 +94,6 @@ static SECURITY_STATUS SEC_ENTRY credssp_QueryContextAttributes(PCtxtHandle phCo
 	if (!pBuffer)
 		return SEC_E_INSUFFICIENT_MEMORY;
 
-	WLog_ERR(TAG, "[%s]: TODO: Implement", __FUNCTION__);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -107,7 +102,6 @@ static SECURITY_STATUS SEC_ENTRY credssp_AcquireCredentialsHandleW(
     void* pAuthData, SEC_GET_KEY_FN pGetKeyFn, void* pvGetKeyArgument, PCredHandle phCredential,
     PTimeStamp ptsExpiry)
 {
-	WLog_ERR(TAG, "[%s]: TODO: Implement", __FUNCTION__);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -133,7 +127,6 @@ static SECURITY_STATUS SEC_ENTRY credssp_AcquireCredentialsHandleA(
 		return SEC_E_OK;
 	}
 
-	WLog_ERR(TAG, "[%s]: TODO: Implement", __FUNCTION__);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -141,7 +134,6 @@ static SECURITY_STATUS SEC_ENTRY credssp_QueryCredentialsAttributesW(PCredHandle
                                                                      ULONG ulAttribute,
                                                                      void* pBuffer)
 {
-	WLog_ERR(TAG, "[%s]: TODO: Implement", __FUNCTION__);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -160,7 +152,6 @@ static SECURITY_STATUS SEC_ENTRY credssp_QueryCredentialsAttributesA(PCredHandle
 		return SEC_E_OK;
 	}
 
-	WLog_ERR(TAG, "[%s]: TODO: Implement", __FUNCTION__);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -183,7 +174,6 @@ static SECURITY_STATUS SEC_ENTRY credssp_FreeCredentialsHandle(PCredHandle phCre
 static SECURITY_STATUS SEC_ENTRY credssp_EncryptMessage(PCtxtHandle phContext, ULONG fQOP,
                                                         PSecBufferDesc pMessage, ULONG MessageSeqNo)
 {
-	WLog_ERR(TAG, "[%s]: TODO: Implement", __FUNCTION__);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -191,14 +181,12 @@ static SECURITY_STATUS SEC_ENTRY credssp_DecryptMessage(PCtxtHandle phContext,
                                                         PSecBufferDesc pMessage, ULONG MessageSeqNo,
                                                         ULONG* pfQOP)
 {
-	WLog_ERR(TAG, "[%s]: TODO: Implement", __FUNCTION__);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
 static SECURITY_STATUS SEC_ENTRY credssp_MakeSignature(PCtxtHandle phContext, ULONG fQOP,
                                                        PSecBufferDesc pMessage, ULONG MessageSeqNo)
 {
-	WLog_ERR(TAG, "[%s]: TODO: Implement", __FUNCTION__);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -206,7 +194,6 @@ static SECURITY_STATUS SEC_ENTRY credssp_VerifySignature(PCtxtHandle phContext,
                                                          PSecBufferDesc pMessage,
                                                          ULONG MessageSeqNo, ULONG* pfQOP)
 {
-	WLog_ERR(TAG, "[%s]: TODO: Implement", __FUNCTION__);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 

@@ -31,16 +31,10 @@ wStream* capture_plugin_packet_new(UINT32 payload_size, UINT16 type)
 	return stream;
 }
 
-wStream* capture_plugin_create_session_info_packet(pClientContext* pc)
+wStream* capture_plugin_create_session_info_packet(rdpSettings* settings)
 {
 	UINT16 username_length;
 	wStream* s = NULL;
-	rdpSettings* settings;
-
-	if (!pc)
-		return NULL;
-
-	settings = pc->context.settings;
 
 	if (!settings || !settings->Username)
 		return NULL;
@@ -54,11 +48,10 @@ wStream* capture_plugin_create_session_info_packet(pClientContext* pc)
 	if (!s)
 		return NULL;
 
-	Stream_Write_UINT16(s, username_length);                         /* username length (2 bytes) */
-	Stream_Write(s, settings->Username, username_length);            /* username */
-	Stream_Write_UINT32(s, settings->DesktopWidth);                  /* desktop width (4 bytes) */
-	Stream_Write_UINT32(s, settings->DesktopHeight);                 /* desktop height (4 bytes) */
-	Stream_Write_UINT32(s, settings->ColorDepth);                    /* color depth (4 bytes) */
-	Stream_Write(s, pc->pdata->session_id, PROXY_SESSION_ID_LENGTH); /* color depth (32 bytes) */
+	Stream_Write_UINT16(s, username_length);              /* username length (2 bytes) */
+	Stream_Write(s, settings->Username, username_length); /* username */
+	Stream_Write_UINT32(s, settings->DesktopWidth);       /* desktop width (4 bytes) */
+	Stream_Write_UINT32(s, settings->DesktopHeight);      /* desktop height (4 bytes) */
+	Stream_Write_UINT32(s, settings->ColorDepth);         /* color depth (4 bytes) */
 	return s;
 }

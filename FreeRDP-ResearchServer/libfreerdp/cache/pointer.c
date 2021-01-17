@@ -68,9 +68,6 @@ static BOOL update_pointer_position(rdpContext* context,
 	    !pointer_position)
 		return FALSE;
 
-	if (!context->settings->GrabMouse)
-		return TRUE;
-
 	pointer = context->graphics->Pointer_Prototype;
 	return IFCALLRESULT(TRUE, pointer->SetPosition, context, pointer_position->xPos,
 	                    pointer_position->yPos);

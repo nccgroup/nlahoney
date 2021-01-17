@@ -35,23 +35,7 @@
 #else
 
 /* Shell clipboard formats */
-struct _FILEDESCRIPTORW
-{
-	DWORD dwFlags;
-	CLSID clsid;
-	SIZEL sizel;
-	POINTL pointl;
-	DWORD dwFileAttributes;
-	FILETIME ftCreationTime;
-	FILETIME ftLastAccessTime;
-	FILETIME ftLastWriteTime;
-	DWORD nFileSizeHigh;
-	DWORD nFileSizeLow;
-	WCHAR cFileName[260];
-};
-typedef struct _FILEDESCRIPTORW FILEDESCRIPTORW;
 
-/* Legacy definition, some types do not match the windows equivalent. */
 struct _FILEDESCRIPTOR
 {
 	DWORD dwFlags;
@@ -69,22 +53,10 @@ struct _FILEDESCRIPTOR
 typedef struct _FILEDESCRIPTOR FILEDESCRIPTOR;
 
 /* FILEDESCRIPTOR.dwFlags */
-typedef enum
-{
-	FD_CLSID = 0x00000001,
-	FD_SIZEPOINT = 0x00000002,
-	FD_ATTRIBUTES = 0x00000004,
-	FD_CREATETIME = 0x00000008,
-	FD_ACCESSTIME = 0x00000010,
-	FD_WRITESTIME = 0x00000020,
-	FD_FILESIZE = 0x00000040,
-	FD_PROGRESSUI = 0x00004000,
-	FD_LINKUI = 0x00008000,
-	FD_UNICODE = 0x80000000
-} FD_FLAGS;
-
-/* Deprecated, here for compatibility */
-#define FD_SHOWPROGRESSUI FD_PROGRESSUI
+#define FD_ATTRIBUTES 0x00000004
+#define FD_FILESIZE 0x00000040
+#define FD_WRITESTIME 0x00000020
+#define FD_SHOWPROGRESSUI 0x00004000
 
 /* FILEDESCRIPTOR.dwFileAttributes */
 #define FILE_ATTRIBUTE_READONLY 0x00000001

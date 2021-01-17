@@ -1,2 +1,0 @@
-/usr/bin/ar qc libfreerdp-channels-server.a  CMakeFiles/freerdp-channels-server.dir/channels.c.o
-/usr/bin/ranlib libfreerdp-channels-server.a

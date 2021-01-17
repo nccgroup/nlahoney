@@ -217,6 +217,7 @@ static BOOL freerdp_dsp_resample(FREERDP_DSP_CONTEXT* context, const BYTE* src, 
 	size_t idone, odone;
 	size_t sframes, rframes;
 	size_t rsize;
+	size_t j;
 	size_t sbytes, rbytes;
 #endif
 	size_t srcBytesPerFrame, dstBytesPerFrame;

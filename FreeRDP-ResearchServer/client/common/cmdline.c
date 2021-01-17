@@ -1567,9 +1567,9 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings, 
 	else
 		compatibility = freerdp_client_detect_command_line(argc - 1, &argv[1], &flags);
 
-	freerdp_settings_set_string(settings, FreeRDP_ProxyHostname, NULL);
-	freerdp_settings_set_string(settings, FreeRDP_ProxyUsername, NULL);
-	freerdp_settings_set_string(settings, FreeRDP_ProxyPassword, NULL);
+	settings->ProxyHostname = NULL;
+	settings->ProxyUsername = NULL;
+	settings->ProxyPassword = NULL;
 
 	if (compatibility)
 	{
@@ -2089,8 +2089,7 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings, 
 		CommandLineSwitchCase(arg, "proxy")
 		{
 			/* initial value */
-			if (!freerdp_settings_set_uint32(settings, FreeRDP_ProxyType, PROXY_TYPE_HTTP))
-				return COMMAND_LINE_ERROR_MEMORY;
+			settings->ProxyType = PROXY_TYPE_HTTP;
 
 			if (arg->Flags & COMMAND_LINE_VALUE_PRESENT)
 			{
@@ -2105,23 +2104,12 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings, 
 					*p = '\0';
 
 					if (_stricmp("no_proxy", arg->Value) == 0)
-					{
-						if (!freerdp_settings_set_uint32(settings, FreeRDP_ProxyType,
-						                                 PROXY_TYPE_IGNORE))
-							return COMMAND_LINE_ERROR_MEMORY;
-					}
+						settings->ProxyType = PROXY_TYPE_IGNORE;
+
 					if (_stricmp("http", arg->Value) == 0)
-					{
-						if (!freerdp_settings_set_uint32(settings, FreeRDP_ProxyType,
-						                                 PROXY_TYPE_HTTP))
-							return COMMAND_LINE_ERROR_MEMORY;
-					}
+						settings->ProxyType = PROXY_TYPE_HTTP;
 					else if (_stricmp("socks5", arg->Value) == 0)
-					{
-						if (!freerdp_settings_set_uint32(settings, FreeRDP_ProxyType,
-						                                 PROXY_TYPE_SOCKS))
-							return COMMAND_LINE_ERROR_MEMORY;
-					}
+						settings->ProxyType = PROXY_TYPE_SOCKS;
 					else
 					{
 						WLog_ERR(TAG, "Only HTTP and SOCKS5 proxies supported by now");
@@ -2154,15 +2142,18 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings, 
 					}
 
 					*colonPtr = '\0';
-					if (!freerdp_settings_set_string(settings, FreeRDP_ProxyUsername, arg->Value))
+					settings->ProxyUsername = _strdup(arg->Value);
+
+					if (!settings->ProxyUsername)
 					{
 						WLog_ERR(TAG, "unable to allocate proxy username");
 						return COMMAND_LINE_ERROR_MEMORY;
 					}
 
 					*atPtr = '\0';
+					settings->ProxyPassword = _strdup(colonPtr + 1);
 
-					if (!freerdp_settings_set_string(settings, FreeRDP_ProxyPassword, colonPtr + 1))
+					if (!settings->ProxyPassword)
 					{
 						WLog_ERR(TAG, "unable to allocate proxy password");
 						return COMMAND_LINE_ERROR_MEMORY;
@@ -2181,16 +2172,11 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings, 
 						return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
 
 					length = (size_t)(p - arg->Value);
-					if (!freerdp_settings_set_uint16(settings, FreeRDP_ProxyPort, val))
-						return FALSE;
-					*p = '\0';
+					settings->ProxyPort = (UINT16)val;
+					settings->ProxyHostname = (char*)malloc(length + 1);
+					strncpy(settings->ProxyHostname, arg->Value, length);
+					settings->ProxyHostname[length] = '\0';
 				}
-
-				p = strchr(arg->Value, '/');
-				if (p)
-					*p = '\0';
-				if (!freerdp_settings_set_string(settings, FreeRDP_ProxyHostname, arg->Value))
-					return FALSE;
 			}
 			else
 			{
@@ -2340,36 +2326,7 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings, 
 		}
 		CommandLineSwitchCase(arg, "clipboard")
 		{
-			if (arg->Value == BoolValueTrue || arg->Value == BoolValueFalse)
-			{
-				settings->RedirectClipboard = (arg->Value == BoolValueTrue);
-			}
-			else
-			{
-				int rc = 0;
-				char** p;
-				size_t count, x;
-				p = CommandLineParseCommaSeparatedValues(arg->Value, &count);
-				for (x = 0; (x < count) && (rc == 0); x++)
-				{
-					const char usesel[14] = "use-selection:";
-
-					const char* cur = p[x];
-					if (_strnicmp(usesel, cur, sizeof(usesel)) == 0)
-					{
-						const char* val = &cur[sizeof(usesel)];
-						if (!copy_value(val, &settings->XSelectionAtom))
-							rc = COMMAND_LINE_ERROR_MEMORY;
-						settings->RedirectClipboard = TRUE;
-					}
-					else
-						rc = COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
-				}
-				free(p);
-
-				if (rc)
-					return rc;
-			}
+			settings->RedirectClipboard = enable;
 		}
 		CommandLineSwitchCase(arg, "shell")
 		{
@@ -2895,10 +2852,6 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings, 
 		CommandLineSwitchCase(arg, "grab-keyboard")
 		{
 			settings->GrabKeyboard = enable;
-		}
-		CommandLineSwitchCase(arg, "grab-mouse")
-		{
-			settings->GrabMouse = enable;
 		}
 		CommandLineSwitchCase(arg, "unmap-buttons")
 		{

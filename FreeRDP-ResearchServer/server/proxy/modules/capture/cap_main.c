@@ -127,7 +127,7 @@ static BOOL capture_plugin_session_end(proxyData* pdata)
 	wStream* s;
 
 	socket = capture_plugin_get_socket(pdata);
-	if (socket == INVALID_SOCKET)
+	if (socket == -1)
 		return FALSE;
 
 	s = capture_plugin_packet_new(SESSION_END_PDU_BASE_SIZE, MESSAGE_TYPE_SESSION_END);
@@ -191,7 +191,7 @@ static BOOL capture_plugin_client_end_paint(proxyData* pdata)
 		return TRUE;
 
 	socket = capture_plugin_get_socket(pdata);
-	if (socket == INVALID_SOCKET)
+	if (socket == -1)
 		return FALSE;
 
 	if (!capture_plugin_send_frame(pc, socket, gdi->primary_buffer))
@@ -209,9 +209,11 @@ static BOOL capture_plugin_client_post_connect(proxyData* pdata)
 {
 	SOCKET socket;
 	wStream* s;
+	pClientContext* pc = pdata->pc;
+	rdpSettings* settings = pc->context.settings;
 
 	socket = capture_plugin_init_socket();
-	if (socket == INVALID_SOCKET)
+	if (socket == -1)
 	{
 		WLog_ERR(TAG, "failed to establish a connection");
 		return FALSE;
@@ -219,7 +221,7 @@ static BOOL capture_plugin_client_post_connect(proxyData* pdata)
 
 	g_plugins_manager->SetPluginData(PLUGIN_NAME, pdata, (void*)socket);
 
-	s = capture_plugin_create_session_info_packet(pdata->pc);
+	s = capture_plugin_create_session_info_packet(settings);
 	if (!s)
 		return FALSE;
 
@@ -232,10 +234,9 @@ static BOOL capture_plugin_server_post_connect(proxyData* pdata)
 	proxyConfig* config = pdata->config;
 	rdpSettings* settings = ps->context.settings;
 
-	if (!config->GFX || !config->DecodeGFX)
+	if (!config->GFX || !config->SessionCapture)
 	{
-		WLog_ERR(TAG, "config options 'Channels.GFX' and 'GFXSettings.DecodeGFX' options must be "
-		              "set to true!");
+		WLog_ERR(TAG, "config options 'GFX' and 'SessionCapture' options must be set to true!");
 		return FALSE;
 	}
 

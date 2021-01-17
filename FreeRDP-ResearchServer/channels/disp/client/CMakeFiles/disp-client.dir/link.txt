@@ -1,2 +1,0 @@
-/usr/bin/ar qc libdisp-client.a  CMakeFiles/disp-client.dir/disp_main.c.o CMakeFiles/disp-client.dir/__/disp_common.c.o
-/usr/bin/ranlib libdisp-client.a

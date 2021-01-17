@@ -27,11 +27,8 @@
 #include "schannel.h"
 
 #include "../sspi.h"
-#include "../log.h"
 
 static char* SCHANNEL_PACKAGE_NAME = "Schannel";
-
-#define TAG WINPR_TAG("sspi.Schannel")
 
 SCHANNEL_CONTEXT* schannel_ContextNew(void)
 {
@@ -116,7 +113,6 @@ static SECURITY_STATUS SEC_ENTRY schannel_QueryCredentialsAttributesW(PCredHandl
 		return SEC_E_OK;
 	}
 
-	WLog_ERR(TAG, "[%s]: TODO: Implement ulAttribute=%08" PRIx32, __FUNCTION__, ulAttribute);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -312,7 +308,6 @@ static SECURITY_STATUS SEC_ENTRY schannel_QueryContextAttributes(PCtxtHandle phC
 		return SEC_E_OK;
 	}
 
-	WLog_ERR(TAG, "[%s]: TODO: Implement ulAttribute=%08" PRIx32, __FUNCTION__, ulAttribute);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 

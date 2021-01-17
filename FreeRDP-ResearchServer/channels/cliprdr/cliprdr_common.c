@@ -191,7 +191,6 @@ wStream* cliprdr_packet_format_list_new(const CLIPRDR_FORMAT_LIST* formatList,
 	WCHAR* wszFormatName;
 	BOOL asciiNames = FALSE;
 	CLIPRDR_FORMAT* format;
-	UINT32 length;
 
 	if (formatList->msgType != CB_FORMAT_LIST)
 		WLog_WARN(TAG, "[%s] called with invalid type %08" PRIx32, __FUNCTION__,
@@ -199,7 +198,7 @@ wStream* cliprdr_packet_format_list_new(const CLIPRDR_FORMAT_LIST* formatList,
 
 	if (!useLongFormatNames)
 	{
-		length = formatList->numFormats * 36;
+		UINT32 length = formatList->numFormats * 36;
 		s = cliprdr_packet_new(CB_FORMAT_LIST, 0, length);
 
 		if (!s)
@@ -237,10 +236,7 @@ wStream* cliprdr_packet_format_list_new(const CLIPRDR_FORMAT_LIST* formatList,
 					    ConvertToUnicode(CP_UTF8, 0, szFormatName, -1, &wszFormatName, 0);
 
 				if (formatNameSize < 0)
-				{
-					Stream_Free(s, TRUE);
 					return NULL;
-				}
 
 				if (formatNameSize > 15)
 					formatNameSize = 15;
@@ -258,7 +254,7 @@ wStream* cliprdr_packet_format_list_new(const CLIPRDR_FORMAT_LIST* formatList,
 	}
 	else
 	{
-		length = 0;
+		UINT32 length = 0;
 		for (index = 0; index < formatList->numFormats; index++)
 		{
 			format = (CLIPRDR_FORMAT*)&(formatList->formats[index]);
@@ -294,10 +290,7 @@ wStream* cliprdr_packet_format_list_new(const CLIPRDR_FORMAT_LIST* formatList,
 				const size_t pos = Stream_GetPosition(s);
 				const size_t rem = cap - pos;
 				if ((cap < pos) || ((rem / 2) > INT_MAX))
-				{
-					Stream_Free(s, TRUE);
 					return NULL;
-				}
 
 				lpWideCharStr = (LPWSTR)Stream_Pointer(s);
 				cchWideChar = (int)(rem / 2);
@@ -305,10 +298,7 @@ wStream* cliprdr_packet_format_list_new(const CLIPRDR_FORMAT_LIST* formatList,
 				                                     lpWideCharStr, cchWideChar) *
 				                 2;
 				if (formatNameSize < 0)
-				{
-					Stream_Free(s, TRUE);
 					return NULL;
-				}
 				Stream_Seek(s, (size_t)formatNameSize);
 			}
 			else

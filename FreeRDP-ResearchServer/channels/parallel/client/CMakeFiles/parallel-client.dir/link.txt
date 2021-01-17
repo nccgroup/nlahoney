@@ -1,2 +1,0 @@
-/usr/bin/ar qc libparallel-client.a  CMakeFiles/parallel-client.dir/parallel_main.c.o
-/usr/bin/ranlib libparallel-client.a

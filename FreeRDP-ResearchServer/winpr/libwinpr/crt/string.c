@@ -23,9 +23,7 @@
 
 #include <errno.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <wctype.h>
-#include <wchar.h>
 
 #include <winpr/crt.h>
 #include <winpr/endian.h>
@@ -234,7 +232,7 @@ LPSTR CharUpperA(LPSTR lpsz)
 		char c = *lpsz;
 
 		if ((c >= 'a') && (c <= 'z'))
-			c = c - 'a' + 'A';
+			c = c - 32;
 
 		*lpsz = c;
 		return lpsz;
@@ -243,7 +241,7 @@ LPSTR CharUpperA(LPSTR lpsz)
 	for (i = 0; i < length; i++)
 	{
 		if ((lpsz[i] >= 'a') && (lpsz[i] <= 'z'))
-			lpsz[i] = lpsz[i] - 'a' + 'A';
+			lpsz[i] = lpsz[i] - 32;
 	}
 
 	return lpsz;
@@ -251,35 +249,8 @@ LPSTR CharUpperA(LPSTR lpsz)
 
 LPWSTR CharUpperW(LPWSTR lpsz)
 {
-	size_t i;
-	size_t length;
-
-	if (!lpsz)
-		return NULL;
-
-	length = _wcslen(lpsz);
-
-	if (length < 1)
-		return (LPWSTR)NULL;
-
-	if (length == 1)
-	{
-		WCHAR c = *lpsz;
-
-		if ((c >= L'a') && (c <= L'z'))
-			c = c - L'a' + L'A';
-
-		*lpsz = c;
-		return lpsz;
-	}
-
-	for (i = 0; i < length; i++)
-	{
-		if ((lpsz[i] >= L'a') && (lpsz[i] <= L'z'))
-			lpsz[i] = lpsz[i] - L'a' + L'A';
-	}
-
-	return lpsz;
+	WLog_ERR(TAG, "CharUpperW unimplemented!");
+	return (LPWSTR)NULL;
 }
 
 DWORD CharUpperBuffA(LPSTR lpsz, DWORD cchLength)
@@ -292,7 +263,7 @@ DWORD CharUpperBuffA(LPSTR lpsz, DWORD cchLength)
 	for (i = 0; i < cchLength; i++)
 	{
 		if ((lpsz[i] >= 'a') && (lpsz[i] <= 'z'))
-			lpsz[i] = lpsz[i] - 'a' + 'A';
+			lpsz[i] = lpsz[i] - 32;
 	}
 
 	return cchLength;
@@ -331,7 +302,7 @@ LPSTR CharLowerA(LPSTR lpsz)
 		char c = *lpsz;
 
 		if ((c >= 'A') && (c <= 'Z'))
-			c = c - 'A' + 'a';
+			c = c + 32;
 
 		*lpsz = c;
 		return lpsz;
@@ -340,7 +311,7 @@ LPSTR CharLowerA(LPSTR lpsz)
 	for (i = 0; i < length; i++)
 	{
 		if ((lpsz[i] >= 'A') && (lpsz[i] <= 'Z'))
-			lpsz[i] = lpsz[i] - 'A' + 'a';
+			lpsz[i] = lpsz[i] + 32;
 	}
 
 	return lpsz;
@@ -348,8 +319,8 @@ LPSTR CharLowerA(LPSTR lpsz)
 
 LPWSTR CharLowerW(LPWSTR lpsz)
 {
-	CharLowerBuffW(lpsz, _wcslen(lpsz));
-	return lpsz;
+	WLog_ERR(TAG, "CharLowerW unimplemented!");
+	return (LPWSTR)NULL;
 }
 
 DWORD CharLowerBuffA(LPSTR lpsz, DWORD cchLength)
@@ -362,7 +333,7 @@ DWORD CharLowerBuffA(LPSTR lpsz, DWORD cchLength)
 	for (i = 0; i < cchLength; i++)
 	{
 		if ((lpsz[i] >= 'A') && (lpsz[i] <= 'Z'))
-			lpsz[i] = lpsz[i] - 'A' + 'a';
+			lpsz[i] = lpsz[i] + 32;
 	}
 
 	return cchLength;
@@ -393,10 +364,8 @@ BOOL IsCharAlphaA(CHAR ch)
 
 BOOL IsCharAlphaW(WCHAR ch)
 {
-	if (((ch >= L'a') && (ch <= L'z')) || ((ch >= L'A') && (ch <= L'Z')))
-		return 1;
-	else
-		return 0;
+	WLog_ERR(TAG, "IsCharAlphaW unimplemented!");
+	return 0;
 }
 
 BOOL IsCharAlphaNumericA(CHAR ch)
@@ -410,11 +379,8 @@ BOOL IsCharAlphaNumericA(CHAR ch)
 
 BOOL IsCharAlphaNumericW(WCHAR ch)
 {
-	if (((ch >= L'a') && (ch <= L'z')) || ((ch >= L'A') && (ch <= L'Z')) ||
-	    ((ch >= L'0') && (ch <= L'9')))
-		return 1;
-	else
-		return 0;
+	WLog_ERR(TAG, "IsCharAlphaNumericW unimplemented!");
+	return 0;
 }
 
 BOOL IsCharUpperA(CHAR ch)
@@ -427,10 +393,8 @@ BOOL IsCharUpperA(CHAR ch)
 
 BOOL IsCharUpperW(WCHAR ch)
 {
-	if ((ch >= L'A') && (ch <= L'Z'))
-		return 1;
-	else
-		return 0;
+	WLog_ERR(TAG, "IsCharUpperW unimplemented!");
+	return 0;
 }
 
 BOOL IsCharLowerA(CHAR ch)
@@ -443,10 +407,8 @@ BOOL IsCharLowerA(CHAR ch)
 
 BOOL IsCharLowerW(WCHAR ch)
 {
-	if ((ch >= L'a') && (ch <= L'z'))
-		return 1;
-	else
-		return 0;
+	WLog_ERR(TAG, "IsCharLowerW unimplemented!");
+	return 0;
 }
 
 int lstrlenA(LPCSTR lpString)

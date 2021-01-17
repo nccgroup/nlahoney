@@ -1,2 +1,0 @@
-/usr/bin/ar qc libserial-client.a  CMakeFiles/serial-client.dir/serial_main.c.o
-/usr/bin/ranlib libserial-client.a

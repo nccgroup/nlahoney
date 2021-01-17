@@ -1,2 +1,0 @@
-/usr/bin/ar qc libdrive-client.a  CMakeFiles/drive-client.dir/drive_file.c.o CMakeFiles/drive-client.dir/drive_main.c.o
-/usr/bin/ranlib libdrive-client.a

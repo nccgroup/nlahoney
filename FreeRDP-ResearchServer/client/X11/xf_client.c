@@ -940,7 +940,6 @@ static int _xf_error_handler(Display* d, XErrorEvent* ev)
 	 * another window. This make xf_error_handler() a potential
 	 * debugger breakpoint.
 	 */
-
 	XUngrabKeyboard(d, CurrentTime);
 	return xf_error_handler(d, ev);
 }
@@ -1838,7 +1837,6 @@ static BOOL xfreerdp_client_new(freerdp* instance, rdpContext* context)
 	instance->GatewayAuthenticate = client_cli_gw_authenticate;
 	instance->VerifyCertificateEx = client_cli_verify_certificate_ex;
 	instance->VerifyChangedCertificateEx = client_cli_verify_changed_certificate_ex;
-	instance->PresentGatewayMessage = client_cli_present_gateway_message;
 	instance->LogonErrorInfo = xf_logon_error_info;
 	PubSub_SubscribeTerminate(context->pubSub, xf_TerminateEventHandler);
 #ifdef WITH_XRENDER
@@ -1887,9 +1885,9 @@ static BOOL xfreerdp_client_new(freerdp* instance, rdpContext* context)
 
 	if ((xfc->_NET_SUPPORTED != None) && (xfc->_NET_SUPPORTING_WM_CHECK != None))
 	{
-		Atom actual_type = 0;
-		int actual_format = 0;
-		unsigned long nitems = 0, after = 0;
+		Atom actual_type;
+		int actual_format;
+		unsigned long nitems, after;
 		unsigned char* data = NULL;
 		int status = XGetWindowProperty(xfc->display, RootWindowOfScreen(xfc->screen),
 		                                xfc->_NET_SUPPORTED, 0, 1024, False, XA_ATOM, &actual_type,
@@ -1906,8 +1904,6 @@ static BOOL xfreerdp_client_new(freerdp* instance, rdpContext* context)
 			XFree(data);
 	}
 
-	xfc->_XWAYLAND_MAY_GRAB_KEYBOARD =
-	    XInternAtom(xfc->display, "_XWAYLAND_MAY_GRAB_KEYBOARD", False);
 	xfc->_NET_WM_ICON = XInternAtom(xfc->display, "_NET_WM_ICON", False);
 	xfc->_MOTIF_WM_HINTS = XInternAtom(xfc->display, "_MOTIF_WM_HINTS", False);
 	xfc->_NET_CURRENT_DESKTOP = XInternAtom(xfc->display, "_NET_CURRENT_DESKTOP", False);

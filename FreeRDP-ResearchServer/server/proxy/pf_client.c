@@ -36,6 +36,7 @@
 #include "pf_log.h"
 #include "pf_modules.h"
 #include "pf_input.h"
+#include "pf_capture.h"
 
 #define TAG PROXY_TAG("client")
 
@@ -184,7 +185,7 @@ static BOOL pf_client_pre_connect(freerdp* instance)
 	 * Also, OrderSupport need to be zeroed, because it is currently not supported.
 	 */
 	settings->GlyphSupportLevel = GLYPH_SUPPORT_NONE;
-	ZeroMemory(settings->OrderSupport, 32);
+	ZeroMemory(instance->settings->OrderSupport, 32);
 
 	settings->SupportDynamicChannels = TRUE;
 
@@ -217,8 +218,15 @@ static BOOL pf_client_pre_connect(freerdp* instance)
 	 */
 	LOG_INFO(TAG, pc, "Loading addins");
 
-	if (!pf_client_use_peer_load_balance_info(pc))
-		return FALSE;
+	if (!config->UseLoadBalanceInfo)
+	{
+		/* if target is static (i.e fetched from config). make sure to use peer's load-balance info,
+		 * in order to support broker redirection.
+		 */
+
+		if (!pf_client_use_peer_load_balance_info(pc))
+			return FALSE;
+	}
 
 	if (!pf_client_passthrough_channels_init(pc))
 		return FALSE;
@@ -306,8 +314,16 @@ static BOOL pf_client_post_connect(freerdp* instance)
 	ps = (rdpContext*)pc->pdata->ps;
 	config = pc->pdata->config;
 
-	if (!pf_modules_run_hook(HOOK_TYPE_CLIENT_POST_CONNECT, pc->pdata))
-		return FALSE;
+	if (config->SessionCapture)
+	{
+		if (!pf_capture_create_session_directory(pc))
+		{
+			LOG_ERR(TAG, pc, "pf_capture_create_session_directory failed!");
+			return FALSE;
+		}
+
+		LOG_ERR(TAG, pc, "frames dir created: %s", pc->frames_dir);
+	}
 
 	if (!gdi_init(instance, PIXEL_FORMAT_BGRA32))
 		return FALSE;
@@ -448,9 +464,6 @@ static BOOL pf_client_connect(freerdp* instance)
 	pf_client_set_security_settings(pc);
 	if (pf_client_should_retry_without_nla(pc))
 		retry = pc->allow_next_conn_failure = TRUE;
-
-	LOG_INFO(TAG, pc, "connecting using security settings: rdp=%d, tls=%d, nla=%d",
-	         settings->RdpSecurity, settings->TlsSecurity, settings->NlaSecurity);
 
 	if (!freerdp_connect(instance))
 	{
@@ -617,6 +630,9 @@ static void pf_client_context_free(freerdp* instance, rdpContext* context)
 
 	if (!pc)
 		return;
+
+	free(pc->frames_dir);
+	pc->frames_dir = NULL;
 
 	HashTable_Free(pc->vc_ids);
 }

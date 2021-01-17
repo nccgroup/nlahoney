@@ -49,7 +49,6 @@ struct cliprdr_plugin
 	BOOL streamFileClipEnabled;
 	BOOL fileClipNoFilePaths;
 	BOOL canLockClipData;
-	BOOL hasHugeFileSupport;
 };
 typedef struct cliprdr_plugin cliprdrPlugin;
 

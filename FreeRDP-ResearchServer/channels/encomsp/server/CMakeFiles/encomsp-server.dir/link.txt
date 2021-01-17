@@ -1,2 +1,0 @@
-/usr/bin/ar qc libencomsp-server.a  CMakeFiles/encomsp-server.dir/encomsp_main.c.o
-/usr/bin/ranlib libencomsp-server.a

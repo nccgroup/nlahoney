@@ -450,16 +450,16 @@ void WTSVirtualChannelManagerGetFileDescriptor(HANDLE hServer, void** fds, int* 
 #endif
 }
 
-static BOOL WTSVirtualChannelManagerOpen(WTSVirtualChannelManager* vcm)
+BOOL WTSVirtualChannelManagerCheckFileDescriptor(HANDLE hServer)
 {
-	if (!vcm)
-		return FALSE;
+	wMessage message;
+	BOOL status = TRUE;
+	rdpPeerChannel* channel;
+	UINT32 dynvc_caps;
+	WTSVirtualChannelManager* vcm = (WTSVirtualChannelManager*)hServer;
 
 	if ((vcm->drdynvc_state == DRDYNVC_STATE_NONE) && vcm->client->activated)
 	{
-		rdpPeerChannel* channel;
-		UINT32 dynvc_caps;
-
 		/* Initialize drdynvc channel once and only once. */
 		vcm->drdynvc_state = DRDYNVC_STATE_INITIALIZED;
 		channel =
@@ -474,26 +474,6 @@ static BOOL WTSVirtualChannelManagerOpen(WTSVirtualChannelManager* vcm)
 			if (!WTSVirtualChannelWrite(channel, (PCHAR)&dynvc_caps, sizeof(dynvc_caps), &written))
 				return FALSE;
 		}
-	}
-
-	return TRUE;
-}
-
-BOOL WTSVirtualChannelManagerCheckFileDescriptorEx(HANDLE hServer, BOOL autoOpen)
-{
-	wMessage message;
-	BOOL status = TRUE;
-	WTSVirtualChannelManager* vcm;
-
-	if (!hServer || hServer == INVALID_HANDLE_VALUE)
-		return FALSE;
-
-	vcm = (WTSVirtualChannelManager*)hServer;
-
-	if (autoOpen)
-	{
-		if (!WTSVirtualChannelManagerOpen(vcm))
-			return FALSE;
 	}
 
 	while (MessageQueue_Peek(vcm->queue, &message, TRUE))
@@ -517,11 +497,6 @@ BOOL WTSVirtualChannelManagerCheckFileDescriptorEx(HANDLE hServer, BOOL autoOpen
 	}
 
 	return status;
-}
-
-BOOL WTSVirtualChannelManagerCheckFileDescriptor(HANDLE hServer)
-{
-	return WTSVirtualChannelManagerCheckFileDescriptorEx(hServer, TRUE);
 }
 
 HANDLE WTSVirtualChannelManagerGetEventHandle(HANDLE hServer)
@@ -693,28 +668,6 @@ const char* WTSChannelGetName(freerdp_peer* client, UINT16 channel_id)
 		return NULL;
 
 	return (const char*)channel->Name;
-}
-
-char** WTSGetAcceptedChannelNames(freerdp_peer* client, size_t* count)
-{
-	rdpMcs* mcs;
-	char** names;
-	UINT32 index;
-
-	if (!client || !client->context || !count)
-		return NULL;
-
-	mcs = client->context->rdp->mcs;
-	*count = mcs->channelCount;
-
-	names = (char**)calloc(mcs->channelCount, sizeof(char*));
-	if (!names)
-		return NULL;
-
-	for (index = 0; index < mcs->channelCount; index++)
-		names[index] = mcs->channels[index].Name;
-
-	return names;
 }
 
 BOOL WINAPI FreeRDP_WTSStartRemoteControlSessionW(LPWSTR pTargetServerName, ULONG TargetLogonId,

@@ -85,7 +85,6 @@ struct _URBDRC_PLUGIN
 
 	wLog* log;
 	IWTSListener* listener;
-	BOOL initialized;
 };
 
 typedef BOOL (*PREGISTERURBDRCSERVICE)(IWTSPlugin* plugin, IUDEVMAN* udevman);
@@ -175,7 +174,6 @@ struct _IUDEVICE
 
 	void (*setAlreadySend)(IUDEVICE* idev);
 	void (*setChannelClosed)(IUDEVICE* idev);
-	void (*markChannelClosed)(IUDEVICE* idev);
 	char* (*getPath)(IUDEVICE* idev);
 
 	void (*free)(IUDEVICE* idev);
@@ -207,7 +205,6 @@ struct _IUDEVMAN
 	                           UINT16 idProduct, UINT32 flag);
 	IUDEVICE* (*get_next)(IUDEVMAN* idevman);
 	IUDEVICE* (*get_udevice_by_UsbDevice)(IUDEVMAN* idevman, UINT32 UsbDevice);
-	IUDEVICE* (*get_udevice_by_ChannelID)(IUDEVMAN* idevman, UINT32 channelID);
 
 	/* Extension */
 	int (*isAutoAdd)(IUDEVMAN* idevman);

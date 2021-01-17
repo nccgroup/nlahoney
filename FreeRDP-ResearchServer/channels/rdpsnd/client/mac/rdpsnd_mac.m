@@ -167,14 +167,22 @@ static BOOL rdpsnd_mac_open(rdpsndDevicePlugin *device, const AUDIO_FORMAT *form
 	if (!mac->engine)
 		return FALSE;
 
-	err = AudioUnitSetProperty(mac->engine.outputNode.audioUnit,
-	                           kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
-	                           &outputDeviceID, sizeof(outputDeviceID));
-	if (err)
+	if (@available(macOS 10.15, *))
 	{
-		rdpsnd_mac_release(mac);
-		WLog_ERR(TAG, "AudioUnitSetProperty: %s", FormatError(err));
-		return FALSE;
+		/* Setting the output audio device on 10.15 or later breaks sound playback. Do not set for
+		 * now until we find a proper fix for #5747 */
+	}
+	else
+	{
+		err = AudioUnitSetProperty(mac->engine.outputNode.audioUnit,
+		                           kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global,
+		                           0, &outputDeviceID, sizeof(outputDeviceID));
+		if (err)
+		{
+			rdpsnd_mac_release(mac);
+			WLog_ERR(TAG, "AudioUnitSetProperty: %s", FormatError(err));
+			return FALSE;
+		}
 	}
 
 	mac->player = [[AVAudioPlayerNode alloc] init];
@@ -188,8 +196,6 @@ static BOOL rdpsnd_mac_open(rdpsndDevicePlugin *device, const AUDIO_FORMAT *form
 	[mac->engine attachNode:mac->player];
 
 	[mac->engine connect:mac->player to:mac->engine.mainMixerNode format:nil];
-
-	[mac->engine prepare];
 
 	if (![mac->engine startAndReturnError:&error])
 	{
@@ -269,19 +275,6 @@ static void rdpsnd_mac_start(rdpsndDevicePlugin *device)
 
 	if (!mac->isPlaying)
 	{
-		if (!mac->engine.isRunning)
-		{
-			NSError *error;
-
-			if (![mac->engine startAndReturnError:&error])
-			{
-				device->Close(device);
-				WLog_ERR(TAG, "Failed to start audio player %s",
-				         [error.localizedDescription UTF8String]);
-				return;
-			}
-		}
-
 		[mac->player play];
 
 		mac->isPlaying = TRUE;

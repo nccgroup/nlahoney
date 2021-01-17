@@ -75,7 +75,6 @@ static const size_t bool_list_indices[] = {
 	FreeRDP_GfxSmallCache,
 	FreeRDP_GfxThinClient,
 	FreeRDP_GrabKeyboard,
-	FreeRDP_GrabMouse,
 	FreeRDP_HasExtendedMouseEvent,
 	FreeRDP_HasHorizontalWheel,
 	FreeRDP_HasMonitorAttributes,

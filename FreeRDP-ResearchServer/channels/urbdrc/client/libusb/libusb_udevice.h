@@ -63,7 +63,7 @@ struct _UDEVICE
 	MSUSB_CONFIG_DESCRIPTOR* MsConfig;
 	LIBUSB_CONFIG_DESCRIPTOR* LibusbConfig;
 
-	wArrayList* request_queue;
+	wHashTable* request_queue;
 
 	URBDRC_PLUGIN* urbdrc;
 };

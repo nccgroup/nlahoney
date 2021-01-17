@@ -25,22 +25,6 @@
 
 #include <winpr/collections.h>
 
-struct _wQueue
-{
-	size_t capacity;
-	size_t growthFactor;
-	BOOL synchronized;
-
-	size_t head;
-	size_t tail;
-	size_t size;
-	void** array;
-	CRITICAL_SECTION lock;
-	HANDLE event;
-
-	wObject object;
-};
-
 /**
  * C equivalent of the C# Queue Class:
  * http://msdn.microsoft.com/en-us/library/system.collections.queue.aspx
@@ -56,13 +40,15 @@ struct _wQueue
 
 int Queue_Count(wQueue* queue)
 {
-	size_t ret;
+	int ret;
 
-	Queue_Lock(queue);
+	if (queue->synchronized)
+		EnterCriticalSection(&queue->lock);
 
 	ret = queue->size;
 
-	Queue_Unlock(queue);
+	if (queue->synchronized)
+		LeaveCriticalSection(&queue->lock);
 
 	return ret;
 }
@@ -73,8 +59,7 @@ int Queue_Count(wQueue* queue)
 
 void Queue_Lock(wQueue* queue)
 {
-	if (queue->synchronized)
-		EnterCriticalSection(&queue->lock);
+	EnterCriticalSection(&queue->lock);
 }
 
 /**
@@ -83,8 +68,7 @@ void Queue_Lock(wQueue* queue)
 
 void Queue_Unlock(wQueue* queue)
 {
-	if (queue->synchronized)
-		LeaveCriticalSection(&queue->lock);
+	LeaveCriticalSection(&queue->lock);
 }
 
 /**
@@ -94,13 +78,6 @@ void Queue_Unlock(wQueue* queue)
 HANDLE Queue_Event(wQueue* queue)
 {
 	return queue->event;
-}
-
-wObject* Queue_Object(wQueue* queue)
-{
-	if (!queue)
-		return NULL;
-	return &queue->object;
 }
 
 /**
@@ -113,9 +90,10 @@ wObject* Queue_Object(wQueue* queue)
 
 void Queue_Clear(wQueue* queue)
 {
-	size_t index;
+	int index;
 
-	Queue_Lock(queue);
+	if (queue->synchronized)
+		EnterCriticalSection(&queue->lock);
 
 	for (index = queue->head; index != queue->tail; index = (index + 1) % queue->capacity)
 	{
@@ -127,20 +105,22 @@ void Queue_Clear(wQueue* queue)
 
 	queue->size = 0;
 	queue->head = queue->tail = 0;
-	ResetEvent(queue->event);
-	Queue_Unlock(queue);
+
+	if (queue->synchronized)
+		LeaveCriticalSection(&queue->lock);
 }
 
 /**
  * Determines whether an element is in the Queue.
  */
 
-BOOL Queue_Contains(wQueue* queue, const void* obj)
+BOOL Queue_Contains(wQueue* queue, void* obj)
 {
-	size_t index;
+	int index;
 	BOOL found = FALSE;
 
-	Queue_Lock(queue);
+	if (queue->synchronized)
+		EnterCriticalSection(&queue->lock);
 
 	for (index = 0; index < queue->tail; index++)
 	{
@@ -151,27 +131,37 @@ BOOL Queue_Contains(wQueue* queue, const void* obj)
 		}
 	}
 
-	Queue_Unlock(queue);
+	if (queue->synchronized)
+		LeaveCriticalSection(&queue->lock);
 
 	return found;
 }
 
-static BOOL Queue_EnsureCapacity(wQueue* queue, size_t count)
-{
-	if (!queue)
-		return FALSE;
+/**
+ * Adds an object to the end of the Queue.
+ */
 
-	if (queue->size + count >= queue->capacity)
+BOOL Queue_Enqueue(wQueue* queue, void* obj)
+{
+	BOOL ret = TRUE;
+
+	if (queue->synchronized)
+		EnterCriticalSection(&queue->lock);
+
+	if (queue->size == queue->capacity)
 	{
-		const size_t old_capacity = queue->capacity;
-		size_t new_capacity = queue->capacity * queue->growthFactor;
+		int old_capacity;
+		int new_capacity;
 		void** newArray;
-		if (new_capacity < queue->size + count)
-			new_capacity = queue->size + count;
+		old_capacity = queue->capacity;
+		new_capacity = queue->capacity * queue->growthFactor;
 		newArray = (void**)realloc(queue->array, sizeof(void*) * new_capacity);
 
 		if (!newArray)
-			return FALSE;
+		{
+			ret = FALSE;
+			goto out;
+		}
 
 		queue->capacity = new_capacity;
 		queue->array = newArray;
@@ -184,21 +174,6 @@ static BOOL Queue_EnsureCapacity(wQueue* queue, size_t count)
 			queue->tail += old_capacity;
 		}
 	}
-	return TRUE;
-}
-
-/**
- * Adds an object to the end of the Queue.
- */
-
-BOOL Queue_Enqueue(wQueue* queue, void* obj)
-{
-	BOOL ret = TRUE;
-
-	Queue_Lock(queue);
-
-	if (!Queue_EnsureCapacity(queue, 1))
-		goto out;
 
 	queue->array[queue->tail] = obj;
 	queue->tail = (queue->tail + 1) % queue->capacity;
@@ -206,7 +181,8 @@ BOOL Queue_Enqueue(wQueue* queue, void* obj)
 	SetEvent(queue->event);
 out:
 
-	Queue_Unlock(queue);
+	if (queue->synchronized)
+		LeaveCriticalSection(&queue->lock);
 
 	return ret;
 }
@@ -219,7 +195,8 @@ void* Queue_Dequeue(wQueue* queue)
 {
 	void* obj = NULL;
 
-	Queue_Lock(queue);
+	if (queue->synchronized)
+		EnterCriticalSection(&queue->lock);
 
 	if (queue->size > 0)
 	{
@@ -232,7 +209,8 @@ void* Queue_Dequeue(wQueue* queue)
 	if (queue->size < 1)
 		ResetEvent(queue->event);
 
-	Queue_Unlock(queue);
+	if (queue->synchronized)
+		LeaveCriticalSection(&queue->lock);
 
 	return obj;
 }
@@ -245,12 +223,14 @@ void* Queue_Peek(wQueue* queue)
 {
 	void* obj = NULL;
 
-	Queue_Lock(queue);
+	if (queue->synchronized)
+		EnterCriticalSection(&queue->lock);
 
 	if (queue->size > 0)
 		obj = queue->array[queue->head];
 
-	Queue_Unlock(queue);
+	if (queue->synchronized)
+		LeaveCriticalSection(&queue->lock);
 
 	return obj;
 }
@@ -266,40 +246,43 @@ static BOOL default_queue_equals(const void* obj1, const void* obj2)
 
 wQueue* Queue_New(BOOL synchronized, int capacity, int growthFactor)
 {
-	wObject* obj;
 	wQueue* queue = NULL;
 	queue = (wQueue*)calloc(1, sizeof(wQueue));
 
 	if (!queue)
 		return NULL;
 
+	queue->capacity = 32;
+	queue->growthFactor = 2;
 	queue->synchronized = synchronized;
 
-	queue->growthFactor = 2;
+	if (capacity > 0)
+		queue->capacity = capacity;
+
 	if (growthFactor > 0)
 		queue->growthFactor = growthFactor;
 
-	if (capacity <= 0)
-		capacity = 32;
-	if (!Queue_EnsureCapacity(queue, capacity))
-		goto fail;
+	queue->array = (void**)calloc(queue->capacity, sizeof(void*));
+
+	if (!queue->array)
+		goto out_free;
 
 	queue->event = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 	if (!queue->event)
-		goto fail;
+		goto out_free_array;
 
 	if (!InitializeCriticalSectionAndSpinCount(&queue->lock, 4000))
-		goto fail;
+		goto out_free_event;
 
-	obj = Queue_Object(queue);
-	if (!obj)
-		goto fail;
-	obj->fnObjectEquals = default_queue_equals;
-
+	queue->object.fnObjectEquals = default_queue_equals;
 	return queue;
-fail:
-	Queue_Free(queue);
+out_free_event:
+	CloseHandle(queue->event);
+out_free_array:
+	free(queue->array);
+out_free:
+	free(queue);
 	return NULL;
 }
 

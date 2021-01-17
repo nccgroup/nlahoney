@@ -215,6 +215,7 @@ LONG RegOpenKeyExA(HKEY hKey, LPCSTR lpSubKey, DWORD ulOptions, REGSAM samDesire
 {
 	Reg* reg;
 	RegKey* pKey;
+
 	reg = RegGetInstance();
 
 	if (!reg)

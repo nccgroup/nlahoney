@@ -242,7 +242,7 @@ static UINT urbdrc_process_io_control(IUDEVICE* pdev, URBDRC_CHANNEL_CALLBACK* c
 	Stream_Read_UINT32(s, OutputBufferSize);
 	Stream_Read_UINT32(s, RequestId);
 	InterfaceId = ((STREAM_ID_PROXY << 30) | pdev->get_ReqCompletion(pdev));
-	out = urb_create_iocompletion(InterfaceId, MessageId, RequestId, OutputBufferSize + 4);
+	out = urb_create_iocompletion(InterfaceId, MessageId, RequestId, OutputBufferSize);
 
 	if (!out)
 		return ERROR_OUTOFMEMORY;
@@ -266,11 +266,7 @@ static UINT urbdrc_process_io_control(IUDEVICE* pdev, URBDRC_CHANNEL_CALLBACK* c
 
 			if (success)
 			{
-				if (!Stream_SafeSeek(out, OutputBufferSize))
-				{
-					Stream_Free(out, TRUE);
-					return ERROR_INVALID_DATA;
-				}
+				Stream_Seek(out, OutputBufferSize);
 
 				if (pdev->isExist(pdev) == 0)
 					Stream_Write_UINT32(out, 0);
@@ -458,13 +454,11 @@ static UINT urb_select_configuration(IUDEVICE* pdev, URBDRC_CHANNEL_CALLBACK* ca
 	if (MsConfig)
 		MsOutSize = MsConfig->MsOutSize;
 
-	if (MsOutSize > 0)
-	{
-		if ((size_t)MsOutSize > SIZE_MAX - 36)
-			return ERROR_INVALID_DATA;
+	if (MsOutSize > SIZE_MAX - 36)
+		return ERROR_INVALID_DATA;
 
+	if (MsOutSize > 0)
 		out_size = 36 + MsOutSize;
-	}
 	else
 		out_size = 44;
 
@@ -769,7 +763,9 @@ static void urb_isoch_transfer_cb(IUDEVICE* pdev, URBDRC_CHANNEL_CALLBACK* callb
 		Stream_Write_UINT32(out, OutputBufferSize); /** OutputBufferSize */
 		Stream_Seek(out, OutputBufferSize);
 
-		stream_write_and_free(callback->plugin, callback->channel, out);
+		if (!pdev->isChannelClosed(pdev))
+			callback->channel->Write(callback->channel, Stream_GetPosition(out), Stream_Buffer(out),
+			                         NULL);
 	}
 }
 

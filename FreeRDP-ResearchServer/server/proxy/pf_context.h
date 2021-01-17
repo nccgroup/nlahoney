@@ -37,8 +37,6 @@
 #include "pf_config.h"
 #include "pf_server.h"
 
-#define PROXY_SESSION_ID_LENGTH 32
-
 typedef struct proxy_data proxyData;
 
 /**
@@ -91,6 +89,10 @@ struct p_client_context
 	 */
 	BOOL allow_next_conn_failure;
 
+	/* session capture */
+	char* frames_dir;
+	UINT64 frames_count;
+
 	wHashTable* vc_ids; /* channel_name -> channel_id map */
 };
 typedef struct p_client_context pClientContext;
@@ -109,7 +111,7 @@ struct proxy_data
 	HANDLE client_thread;
 	HANDLE gfx_server_ready;
 
-	char session_id[PROXY_SESSION_ID_LENGTH + 1];
+	char* session_id;
 
 	/* used to external modules to store per-session info */
 	wHashTable* modules_info;

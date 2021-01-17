@@ -180,7 +180,6 @@ struct rdp_rdp
 	UINT64 outBytes;
 	UINT64 outPackets;
 	CRITICAL_SECTION critical;
-	rdpTransportIo* io;
 };
 
 FREERDP_LOCAL BOOL rdp_read_security_header(wStream* s, UINT16* flags, UINT16* length);
@@ -225,21 +224,16 @@ FREERDP_LOCAL rdpRdp* rdp_new(rdpContext* context);
 FREERDP_LOCAL void rdp_reset(rdpRdp* rdp);
 FREERDP_LOCAL void rdp_free(rdpRdp* rdp);
 
-FREERDP_LOCAL const rdpTransportIo* rdp_get_io_callbacks(rdpRdp* rdp);
-FREERDP_LOCAL BOOL rdp_set_io_callbacks(rdpRdp* rdp, const rdpTransportIo* io_callbacks);
-
 #define RDP_TAG FREERDP_TAG("core.rdp")
 #ifdef WITH_DEBUG_RDP
 #define DEBUG_RDP(...) WLog_DBG(RDP_TAG, __VA_ARGS__)
+extern const char* DATA_PDU_TYPE_STRINGS[80];
 #else
 #define DEBUG_RDP(...) \
 	do                 \
 	{                  \
 	} while (0)
 #endif
-
-const char* data_pdu_type_to_string(UINT8 type);
-const char* pdu_type_to_str(UINT16 pduType);
 
 BOOL rdp_decrypt(rdpRdp* rdp, wStream* s, UINT16* pLength, UINT16 securityFlags);
 
