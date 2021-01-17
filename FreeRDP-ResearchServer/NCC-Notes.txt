@@ -1,14 +1,24 @@
+# Docker
+docker build -t nla .
+docker run -p 3389:3389 nla
+
+# Build
+mkdir build
+cd build
+cmake -DWITH_SERVER=ON ..
+cmake --build .
+
 # Generate a SAM file
-Use ./winpr/tools/hash-cli/winpr-hash
+./winpr/tools/hash-cli/winpr-hash -u ollie -p yoink -f sam > sam
 
 # Running the X Server
 Xvfb :0 -screen 1 1024x768x24
 
 # Run the RDP Enabled FreeRDP Server
-./server/shadow/freerdp-shadow-cli /sec:nla /sam-file:../sam
+./server/shadow/freerdp-shadow-cli /sec:nla /sam-file:sam
 
 # Example
-ollie@huginn:~/freerdp/FreeRDP$ ./server/shadow/freerdp-shadow-cli /sec:nla /sam-file:../sam
+ollie@huginn:~/freerdp/FreeRDP$ ./server/shadow/freerdp-shadow-cli /sec:nla /sam-file:sam
 [18:48:47:715] [109695:109695] [INFO][com.freerdp.server.shadow.x11] - X11 Extensions: XFixes: 1 Xinerama: 0 XDamage: 0 XShm: 0
 [18:48:47:721] [109695:109695] [INFO][com.freerdp.core.listener] - Listening on [0.0.0.0]:3389
 [18:48:50:052] [109695:109708] [INFO][com.freerdp.core.connection] - Client Security: NLA:1 TLS:1 RDP:0
