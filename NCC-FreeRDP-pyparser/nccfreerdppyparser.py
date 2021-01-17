@@ -232,7 +232,8 @@ def parseAuthenticate(session):
 			bSuccess, streamindex, lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
 			print("[i] LM Challenge Response Length: " + str(lmcrlen) + " at " +str(lmcrbufferoffset)) 
 			
-			# LmChallengeResponse
+			# NtChallengeResponse
+			#  Note: client challenge is in here and the message integrity code
 			bSuccess, streamindex, ntcrlen, ntcrmaxlen, ntcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
 			print("[i] NT Challenge Response Length: " + str(ntcrlen) + " at " +str(ntcrbufferoffset)) 
 			
@@ -254,12 +255,28 @@ def parseAuthenticate(session):
 			workstation,throwaway = streamReadBytes(ba,wsbufferoffset,wslen)
 			print("[i] Got Workstation " + str(workstation.decode('utf8', errors='ignore')))
 			
-			
-			# Workstation
+			# Encryted Random Session Key
 			bSuccess, streamindex, ersklen, ersklen, erskbufferoffset = streamReadNTLMMessageField(ba, streamindex)
 			print("[i] Encrypted Random Session Key Length: " + str(ersklen) + " at " +str(erskbufferoffset)) 
 			
+			# Negotiate Flags
+			NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
+			print("[i] Got Negotiate flags")
 			
+			# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION 
+			if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION 
+				# Product Version
+				negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
+				negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
+				negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
+				streamindex = streamindex + 1 # Skips over a reserved
+				negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
+				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
+				
+				
+			# TODO - Not finished
+			#  - Parse the NtChallengeResponse buffer above
+			#    
 			
 			
 			
