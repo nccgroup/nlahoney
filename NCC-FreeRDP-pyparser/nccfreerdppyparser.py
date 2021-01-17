@@ -71,7 +71,7 @@ def streamReadNTLMMessageField(barray, streamindex):
 
 #
 def parseNegotiate(session):
-	print("[i] Parsing Negotiate for " + str(session))
+	print("[i] ** Parsing Negotiate for " + str(session))
 	
 	streamindex = 0
 	
@@ -141,7 +141,7 @@ def parseNegotiate(session):
 
 #
 def parseChallenge(session):
-	print("[i] Parsing Challenge for " + str(session))
+	print("[i] ** Parsing Challenge for " + str(session))
 	
 	streamindex = 0
 	
