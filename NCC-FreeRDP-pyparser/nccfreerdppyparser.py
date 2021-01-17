@@ -8,6 +8,7 @@
 import glob
 import argparse
 import os
+import binascii
 
 bDebug = True
 bStreamDebug = False
@@ -15,6 +16,13 @@ bStreamDebug = False
 def streamGetRemainingBytes(barray, streamindex):
 	return (len(barray) - streamindex)
 
+def streamReadBytes(barray, streamindex,number):
+	if bStreamDebug is True: print("[d] streamindex " + str(streamindex))
+	raw = barray[streamindex:streamindex+number]
+	if bStreamDebug is True: print("[d] raw " + str(raw))
+	streamindex=streamindex+number
+	return raw, streamindex
+	
 def streamReadUint32(barray, streamindex):
 	if bStreamDebug is True: print("[d] streamindex " + str(streamindex))
 	raw = barray[streamindex:streamindex+4]
@@ -88,15 +96,15 @@ def parseNegotiate(session):
 		
 			# Negotiate Flags
 			NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
-			if NegotiateFlags & 0x00000004 is False: 	# NTLMSSP_REQUEST_TARGET
+			if not NegotiateFlags & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
 				print("[!] Incorrect Negotiate flags")
 				return False
 				
-			if NegotiateFlags & 0x00000200 is False: 	# NTLMSSP_NEGOTIATE_NTLM
+			if not NegotiateFlags & 0x00000200 : 	# NTLMSSP_NEGOTIATE_NTLM
 				print("[!] Incorrect Negotiate flags")
 				return False
 		
-			if NegotiateFlags & 0x00000001   is False: 	# NTLMSSP_NEGOTIATE_UNICODE
+			if not NegotiateFlags & 0x00000001 : 	# NTLMSSP_NEGOTIATE_UNICODE
 				print("[!] Incorrect Negotiate flags")
 				return False
 			
@@ -119,7 +127,7 @@ def parseNegotiate(session):
 			print("[i] Workstation Length: " + str(len) + " at " +str(bufferoffset)) 
 			
 			# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION 
-			if (NegotiateFlags & 0x02000000) is True: # NTLMSSP_NEGOTIATE_VERSION 
+			if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION 
 				# Product Version
 				negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
 				negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
@@ -127,11 +135,60 @@ def parseNegotiate(session):
 				streamindex = streamindex + 1 # Skips over a reserved
 				negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
 				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
+				
+				
+			# NOTE: Looks like there might be a version info anyway
+			
+			return True
 			
 
 #
 def parseChallenge(session):
 	print("[i] Parsing Challenge for " + str(session))
+	
+	streamindex = 0
+	
+	strFile = "/tmp/" + str(session) + ".ChallengeOut.bin"
+	hFile = open(strFile, 'rb')
+	ba = bytearray(hFile.read())
+	
+	ret,streamindex = checkHeaderandGetType(ba,streamindex)
+	if ret is False:
+		print("[!] Packet magic is not present ")
+		return False
+	elif ret != 2: # MESSAGE_TYPE_CHALLENGE
+		print("[!] Incorrect message type " + str(ret))
+		return False
+	else:
+		remaining = streamGetRemainingBytes(ba,streamindex);
+		if remaining < 4:
+			print("[!] Not enough bytes remaining " + str(remaining.stream))
+			return False
+	
+		else:
+
+			# Target Name
+			bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] Target Name Length: " + str(len) + " at " +str(bufferoffset)) 
+			
+			# Negotiate Flags
+			NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
+			print("[i] Got Negotiate flags")
+		
+			challenge,streamindex = streamReadBytes(ba,streamindex,8)
+			print("[i] Got Servers challenge " + str(binascii.hexlify(challenge)))
+			
+			reserved,streamindex = streamReadBytes(ba,streamindex,8)
+			print("[i] Skipped reserved ")
+			
+			# Target Info
+			bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] Target Info Length: " + str(len) + " at " +str(bufferoffset)) 
+			
+			# Now check
+			
+			
+			
 
 #
 def parseAuthenticate(session):
