@@ -202,7 +202,15 @@ SECURITY_STATUS ntlm_read_NegotiateMessage(NTLM_CONTEXT* context, PSecBuffer buf
 	WLog_INFO(TAG,"[HONEY] ntlm_read_NegotiateMessage");
 	WLog_INFO(TAG,"[HONEY]   -<- reads into NegotiateMessage");
 
-		
+
+	char strFileOut[255];
+	sprintf(strFileOut,"/tmp/%u.NegotiateIn.bin",context->randID);
+	FILE *ptrFile = fopen(strFileOut,"wb");
+	size_t wroteOut = 0;
+	wroteOut = fwrite((BYTE*)buffer->pvBuffer,sizeof(byte),buffer->cbBuffer,ptrFile);
+	fclose(ptrFile);
+	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
+	
 	wStream* s;
 	size_t length;
 	NTLM_NEGOTIATE_MESSAGE* message;
@@ -385,6 +393,7 @@ SECURITY_STATUS ntlm_read_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer buf
 {
 	
 	WLog_INFO(TAG,"[HONEY] ntlm_read_ChallengeMessage");
+	
 	char strFileOut[255];
 	sprintf(strFileOut,"/tmp/%u.ChallengeIn.bin",context->randID);
 	FILE *ptrFile = fopen(strFileOut,"wb");
@@ -696,7 +705,16 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 	WLog_INFO(TAG,"[HONEY] ntlm_read_AuthenticateMessage");
 	
 	WLog_INFO(TAG,"[HONEY]   -<- AuthenticateMessage");
-		
+
+
+	char strFileOut[255];
+	sprintf(strFileOut,"/tmp/%u.AuthenticateIn.bin",context->randID);
+	FILE *ptrFile = fopen(strFileOut,"wb");
+	size_t wroteOut = 0;
+	wroteOut = fwrite((BYTE*)buffer->pvBuffer,sizeof(byte),buffer->cbBuffer,ptrFile);
+	fclose(ptrFile);
+	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
+	
 	SECURITY_STATUS status = SEC_E_INVALID_TOKEN;
 	wStream* s;
 	size_t length;
