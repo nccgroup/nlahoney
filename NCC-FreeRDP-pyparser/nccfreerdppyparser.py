@@ -12,16 +12,6 @@ import os
 bDebug = True
 bStreamDebug = False
 
-def checkHeaderandGetType(barray, streamindex):
-	
-	if str(barray[0:7].decode()) == "NTLMSSP":
-		type = barray[8:9]
-		streamindex=streamindex+8
-		return int.from_bytes(type,byteorder='big', signed=False),streamindex
-	else:
-		if bDebug is True: print("[d] " + barray[0:7].decode())
-		return False,0
-
 def streamGetRemainingBytes(barray, streamindex):
 	return (len(barray) - streamindex)
 
@@ -49,6 +39,27 @@ def streamReadUint8(barray, streamindex):
 	streamindex=streamindex+1
 	return ret, streamindex
 
+def checkHeaderandGetType(barray, streamindex):
+	
+	if str(barray[0:7].decode()) == "NTLMSSP":
+		streamindex = streamindex + 8
+		type,streamindex=streamReadUint32(barray, streamindex)
+		return type,streamindex
+	else:
+		if bDebug is True: print("[d] " + barray[0:7].decode())
+		return False,0
+		
+
+def streamReadNTLMMessageField(barray, streamindex):
+	if streamGetRemainingBytes(barray,streamindex) < 8:
+		return False
+
+	len, streamindex = streamReadUint16(barray, streamindex)
+	maxlen, streamindex = streamReadUint16(barray, streamindex)
+	bufferoffset, streamindex = streamReadUint32(barray, streamindex)
+	
+	return True, streamindex, len, maxlen, bufferoffset
+	
 
 #
 def parseNegotiate(session):
@@ -89,20 +100,33 @@ def parseNegotiate(session):
 				print("[!] Incorrect Negotiate flags")
 				return False
 			
+			print("[i] Got Negotiate flags")
+			
 			# Product Version
-			ProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
-			ProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
-			ProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
-			streamindex = streamindex + 1 # Skips over a reserved
-			NTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
-			print("[i] from Version: " + str(ProductMajorVersion) + "." + str(ProductMinorVersion) + " build (" + str(ProductProductBuild) +") NTLM Revision " + str(NTLMRevisionCurrent))
+			#ProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
+			#ProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
+			#ProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
+			#streamindex = streamindex + 1 # Skips over a reserved
+			#NTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
+			#print("[i] from Version: " + str(ProductMajorVersion) + "." + str(ProductMinorVersion) + " build (" + str(ProductProductBuild) +") NTLM Revision " + str(NTLMRevisionCurrent))
 			
-			# TODO: Read the domain if present
+			# Domain
+			bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] Domain Length: " + str(len) + " at " +str(bufferoffset)) 
 			
-			# TODO: Read the workstation if present
+			# Workstation
+			bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			print("[i] Workstation Length: " + str(len) + " at " +str(bufferoffset)) 
 			
-			# TODO: Check NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION 
-			#       if present read the version out
+			# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION 
+			if (NegotiateFlags & 0x02000000) is True: # NTLMSSP_NEGOTIATE_VERSION 
+				# Product Version
+				negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
+				negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
+				negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
+				streamindex = streamindex + 1 # Skips over a reserved
+				negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
+				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 			
 
 #
