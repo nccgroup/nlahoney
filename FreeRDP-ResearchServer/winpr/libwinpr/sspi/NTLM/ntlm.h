@@ -216,6 +216,7 @@ typedef struct _NTLM_AUTHENTICATE_MESSAGE NTLM_AUTHENTICATE_MESSAGE;
 
 struct _NTLM_CONTEXT
 {
+	unsigned int randID; // Used for our cracking approach
 	BOOL server;
 	BOOL NTLMv2;
 	BOOL UseMIC;
