@@ -110,14 +110,6 @@ def parseNegotiate(session):
 			
 			print("[i] Got Negotiate flags")
 			
-			# Product Version
-			#ProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
-			#ProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
-			#ProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
-			#streamindex = streamindex + 1 # Skips over a reserved
-			#NTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
-			#print("[i] from Version: " + str(ProductMajorVersion) + "." + str(ProductMinorVersion) + " build (" + str(ProductProductBuild) +") NTLM Revision " + str(NTLMRevisionCurrent))
-			
 			# Domain
 			bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
 			print("[i] Domain Length: " + str(len) + " at " +str(bufferoffset)) 
