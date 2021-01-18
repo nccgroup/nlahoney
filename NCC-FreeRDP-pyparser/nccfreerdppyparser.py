@@ -16,7 +16,7 @@ bStreamDebug = False
 def streamGetRemainingBytes(barray, streamindex):
 	return (len(barray) - streamindex)
 
-def streamReadBytes(barray, streamindex,number):
+def streamReadBytes(barray, streamindex, number):
 	if bStreamDebug is True: print("[d] streamindex " + str(streamindex))
 	raw = barray[streamindex:streamindex+number]
 	if bStreamDebug is True: print("[d] raw " + str(raw))
@@ -274,9 +274,38 @@ def parseAuthenticate(session):
 				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 				
 				
-			# TODO - Not finished
-			#  - Parse the NtChallengeResponse buffer above
-			#    
+			# Parse the NtChallengeResponse we read above
+			
+			# HEALTH WARNING: not sure this is correct yet
+			if ntcrlen > 0:
+				ntcrstreamindex = 0
+				print("[i] Remaining " + str(ntcrlen - ntcrstreamindex))
+				
+				ntcrba, throwaway = streamReadBytes(ba, ntcrbufferoffset, ntcrlen)
+				ntcrresponse, ntcrstreamindex = streamReadBytes(ntcrba, ntcrstreamindex, 16)
+				
+				if ntcrlen - ntcrstreamindex < 28:
+					print("[!] Not enough data in the NT Challenge Response byte array")
+					
+				else: # this is ntlm_read_ntlm_v2_client_challenge in ntlm_compute.c in FreeRDP
+					ntcrresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
+					ntcrhiresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
+					ntcrreserved1,ntcrstreamindex =  streamReadUint16(ntcrba, ntcrstreamindex)
+					ntcrreserved2,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
+					ntcrtimestamp,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
+					print("[i] Got Clients timestamp " + str(binascii.hexlify(ntcrtimestamp)))
+					ntcrclientchallenge,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
+					print("[i] Got Clients challenge " + str(binascii.hexlify(ntcrclientchallenge)))
+					ntcrreserved3,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
+					
+					print("[i] Remaining " + str(ntcrlen - ntcrstreamindex))
+					
+					# AV Pairs
+				
+					# TODO - Not finished
+					#  - Parse the NtChallengeResponse buffer above
+			
+			
 			
 			
 			
