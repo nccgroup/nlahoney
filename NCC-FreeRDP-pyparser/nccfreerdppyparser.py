@@ -9,6 +9,7 @@ import glob
 import argparse
 import os
 import binascii
+import sys
 
 bDebug = True
 bStreamDebug = False
@@ -267,8 +268,6 @@ def parseAuthenticate(session):
 				
 				
 			# Parse the NtChallengeResponse we read above
-			
-			# HEALTH WARNING: not sure this is correct yet
 			if ntcrlen > 0:
 				ntcrstreamindex = 0
 				print("[i] Remaining " + str(ntcrlen - ntcrstreamindex))
@@ -282,15 +281,23 @@ def parseAuthenticate(session):
 				else: # this is ntlm_read_ntlm_v2_client_challenge in ntlm_compute.c in FreeRDP
 					ntcrresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
 					ntcrhiresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
+					
 					ntcrreserved1,ntcrstreamindex =  streamReadUint16(ntcrba, ntcrstreamindex)
 					ntcrreserved2,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
+					
 					ntcrtimestamp,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
 					print("[i] Got Clients timestamp " + str(binascii.hexlify(ntcrtimestamp)))
+					
 					ntcrclientchallenge,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
 					print("[i] Got Clients challenge " + str(binascii.hexlify(ntcrclientchallenge)))
+					
 					ntcrreserved3,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
 					
+					ntcravpairslen = ntcrlen - ntcrstreamindex
+					ntcravpairsba,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, ntcravpairslen )
+					
 					print("[i] Remaining " + str(ntcrlen - ntcrstreamindex))
+					
 					
 					# AV Pairs
 				
@@ -352,7 +359,13 @@ def process(session):
 		parsefiles(session)
 		
 # Entry point to script
+if sys.version_info[0] < 3:
+	print("[!] Must be Python 3")
+	sys.exit(1)
+	
 parser = argparse.ArgumentParser()
 parser.add_argument("session", help="parse this session", type=int)
 args = parser.parse_args()
 process(args.session)
+
+
