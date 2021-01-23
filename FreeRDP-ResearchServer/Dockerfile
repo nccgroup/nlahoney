@@ -47,8 +47,6 @@ RUN apt update && DEBIAN_FRONTEND=noninteractive apt install -y \
 	xvfb
 
 COPY . /FreeRDP
-WORKDIR /FreeRDP/build-docker
-RUN cmake -DWITH_SERVER=ON ..
+WORKDIR /build
+RUN cmake -DWITH_SERVER=ON /FreeRDP
 RUN cmake --build .
-RUN ./winpr/tools/hash-cli/winpr-hash -u ollie -p yoink -f sam > sam
-cmd sh -c 'Xvfb :0 -screen 1 1024x768x24 & sleep 1; ./server/shadow/freerdp-shadow-cli /sec:nla /sam-file:sam'
