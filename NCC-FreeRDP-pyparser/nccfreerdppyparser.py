@@ -87,49 +87,47 @@ def parseNegotiate(session, dir):
 	elif ret != 1: # MESSAGE_TYPE_NEGOTIATE
 		print("[!] Incorrect message type " + str(ret))
 		return False
-	else:
-		remaining = streamGetRemainingBytes(ba,streamindex);
-		if remaining < 4:
-			print("[!] Not enough bytes remaining " + str(remaining.stream))
-			return False
 
-		else:
+	remaining = streamGetRemainingBytes(ba,streamindex);
+	if remaining < 4:
+		print("[!] Not enough bytes remaining " + str(remaining.stream))
+		return False
 
-			# Negotiate Flags
-			NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
-			if not NegotiateFlags & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
-				print("[!] Incorrect Negotiate flags")
-				return False
+	# Negotiate Flags
+	NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
+	if not NegotiateFlags & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
+		print("[!] Incorrect Negotiate flags")
+		return False
 
-			if not NegotiateFlags & 0x00000200 : 	# NTLMSSP_NEGOTIATE_NTLM
-				print("[!] Incorrect Negotiate flags")
-				return False
+	if not NegotiateFlags & 0x00000200 : 	# NTLMSSP_NEGOTIATE_NTLM
+		print("[!] Incorrect Negotiate flags")
+		return False
 
-			if not NegotiateFlags & 0x00000001 : 	# NTLMSSP_NEGOTIATE_UNICODE
-				print("[!] Incorrect Negotiate flags")
-				return False
+	if not NegotiateFlags & 0x00000001 : 	# NTLMSSP_NEGOTIATE_UNICODE
+		print("[!] Incorrect Negotiate flags")
+		return False
 
-			print("[i] Got Negotiate flags")
+	print("[i] Got Negotiate flags")
 
-			# Domain
-			bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Domain Length: " + str(len) + " at " +str(bufferoffset))
+	# Domain
+	bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] Domain Length: " + str(len) + " at " +str(bufferoffset))
 
-			# Workstation
-			bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Workstation Length: " + str(len) + " at " +str(bufferoffset))
+	# Workstation
+	bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] Workstation Length: " + str(len) + " at " +str(bufferoffset))
 
-			# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION
-			if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION
-				# Product Version
-				negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
-				negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
-				negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
-				streamindex = streamindex + 1 # Skips over a reserved
-				negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
-				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
+	# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION
+	if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION
+		# Product Version
+		negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
+		negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
+		negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
+		streamindex = streamindex + 1 # Skips over a reserved
+		negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
+		print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 
-			return True
+	return True
 
 
 #
@@ -149,53 +147,51 @@ def parseChallenge(session, dir):
 	elif ret != 2: # MESSAGE_TYPE_CHALLENGE
 		print("[!] Incorrect message type " + str(ret))
 		return False
-	else:
-		remaining = streamGetRemainingBytes(ba,streamindex);
-		if remaining < 4:
-			print("[!] Not enough bytes remaining " + str(remaining.stream))
-			return False
 
-		else:
+	remaining = streamGetRemainingBytes(ba,streamindex);
+	if remaining < 4:
+		print("[!] Not enough bytes remaining " + str(remaining.stream))
+		return False
 
-			# Target Name
-			bSuccess, streamindex, tnlen, tnmaxlen, tnbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Target Name Length: " + str(tnlen) + " at " +str(tnbufferoffset))
+	# Target Name
+	bSuccess, streamindex, tnlen, tnmaxlen, tnbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] Target Name Length: " + str(tnlen) + " at " +str(tnbufferoffset))
 
-			# Negotiate Flags
-			NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
-			print("[i] Got Negotiate flags")
+	# Negotiate Flags
+	NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
+	print("[i] Got Negotiate flags")
 
-			challenge,streamindex = streamReadBytes(ba,streamindex,8)
-			print("[i] Got Servers challenge " + str(binascii.hexlify(challenge)))
+	challenge,streamindex = streamReadBytes(ba,streamindex,8)
+	print("[i] Got Servers challenge " + str(binascii.hexlify(challenge)))
 
-			reserved,streamindex = streamReadBytes(ba,streamindex,8)
-			print("[i] Skipped reserved ")
+	reserved,streamindex = streamReadBytes(ba,streamindex,8)
+	print("[i] Skipped reserved ")
 
-			# Target Info
-			bSuccess, streamindex, tilen, timaxlen, tibufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Target Info Length: " + str(tilen) + " at " +str(tibufferoffset))
+	# Target Info
+	bSuccess, streamindex, tilen, timaxlen, tibufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] Target Info Length: " + str(tilen) + " at " +str(tibufferoffset))
 
-			# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION
-			if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION
-				# Product Version
-				negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
-				negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
-				negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
-				streamindex = streamindex + 1 # Skips over a reserved
-				negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
-				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
+	# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION
+	if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION
+		# Product Version
+		negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
+		negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
+		negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
+		streamindex = streamindex + 1 # Skips over a reserved
+		negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
+		print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 
-			# Target Name
-			if NegotiateFlags & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
-				targetname,throwaway = streamReadBytes(ba,tnbufferoffset,tnlen)
-				print("[i] Got Target Name " + str(targetname.decode('utf8', errors='ignore')))
+	# Target Name
+	if NegotiateFlags & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
+		targetname,throwaway = streamReadBytes(ba,tnbufferoffset,tnlen)
+		print("[i] Got Target Name " + str(targetname.decode('utf8', errors='ignore')))
 
-			# Target Info - maybe parse this?
-			if NegotiateFlags & 0x00800000 :	# NTLMSSP_NEGOTIATE_TARGET_INFO
-				targetinfo,throwaway= streamReadBytes(ba,tibufferoffset,tilen)
-				print("[i] Got Target Info " + str(binascii.hexlify(targetinfo)))
+	# Target Info - maybe parse this?
+	if NegotiateFlags & 0x00800000 :	# NTLMSSP_NEGOTIATE_TARGET_INFO
+		targetinfo,throwaway= streamReadBytes(ba,tibufferoffset,tilen)
+		print("[i] Got Target Info " + str(binascii.hexlify(targetinfo)))
 
-			return True
+	return True
 
 #
 def parseAuthenticate(session, dir):
@@ -214,95 +210,94 @@ def parseAuthenticate(session, dir):
 	elif ret != 3: # MESSAGE_TYPE_AUTHENTICATE
 		print("[!] Incorrect message type " + str(ret))
 		return False
-	else:
-		remaining = streamGetRemainingBytes(ba,streamindex);
-		if remaining < 4:
-			print("[!] Not enough bytes remaining " + str(remaining.stream))
-			return False
 
-		else:
-			# LmChallengeResponse
-			bSuccess, streamindex, lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] LM Challenge Response Length: " + str(lmcrlen) + " at " +str(lmcrbufferoffset))
+	remaining = streamGetRemainingBytes(ba,streamindex);
+	if remaining < 4:
+		print("[!] Not enough bytes remaining " + str(remaining.stream))
+		return False
 
-			# NtChallengeResponse
-			#  Note: client challenge is in here and the message integrity code
-			bSuccess, streamindex, ntcrlen, ntcrmaxlen, ntcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] NT Challenge Response Length: " + str(ntcrlen) + " at " +str(ntcrbufferoffset))
+	# LmChallengeResponse
+	bSuccess, streamindex, lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] LM Challenge Response Length: " + str(lmcrlen) + " at " +str(lmcrbufferoffset))
 
-			# Domain Name
-			bSuccess, streamindex, domlen, dommaxlen, dombufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Domain Name Length: " + str(domlen) + " at " +str(dombufferoffset))
-			domain,throwaway = streamReadBytes(ba,dombufferoffset,domlen)
-			print("[i] Got Domain " + str(domain.decode('utf8', errors='ignore')))
+	# NtChallengeResponse
+	#  Note: client challenge is in here and the message integrity code
+	bSuccess, streamindex, ntcrlen, ntcrmaxlen, ntcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] NT Challenge Response Length: " + str(ntcrlen) + " at " +str(ntcrbufferoffset))
 
-			# User Name
-			bSuccess, streamindex, usrlen, usrmaxlen, usrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] User Name Length: " + str(usrlen) + " at " +str(usrbufferoffset))
-			username,throwaway = streamReadBytes(ba,usrbufferoffset,usrlen)
-			print("[i] Got User Name " + str(username.decode('utf8', errors='ignore')))
+	# Domain Name
+	bSuccess, streamindex, domlen, dommaxlen, dombufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] Domain Name Length: " + str(domlen) + " at " +str(dombufferoffset))
+	domain,throwaway = streamReadBytes(ba,dombufferoffset,domlen)
+	print("[i] Got Domain " + str(domain.decode('utf8', errors='ignore')))
 
-			# Workstation
-			bSuccess, streamindex, wslen, wsmaxlen, wsbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Workstation Length: " + str(wslen) + " at " +str(wsbufferoffset))
-			workstation,throwaway = streamReadBytes(ba,wsbufferoffset,wslen)
-			print("[i] Got Workstation " + str(workstation.decode('utf8', errors='ignore')))
+	# User Name
+	bSuccess, streamindex, usrlen, usrmaxlen, usrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] User Name Length: " + str(usrlen) + " at " +str(usrbufferoffset))
+	username,throwaway = streamReadBytes(ba,usrbufferoffset,usrlen)
+	print("[i] Got User Name " + str(username.decode('utf8', errors='ignore')))
 
-			# Encryted Random Session Key
-			bSuccess, streamindex, ersklen, ersklen, erskbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Encrypted Random Session Key Length: " + str(ersklen) + " at " +str(erskbufferoffset))
+	# Workstation
+	bSuccess, streamindex, wslen, wsmaxlen, wsbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] Workstation Length: " + str(wslen) + " at " +str(wsbufferoffset))
+	workstation,throwaway = streamReadBytes(ba,wsbufferoffset,wslen)
+	print("[i] Got Workstation " + str(workstation.decode('utf8', errors='ignore')))
 
-			# Negotiate Flags
-			NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
-			print("[i] Got Negotiate flags")
+	# Encryted Random Session Key
+	bSuccess, streamindex, ersklen, ersklen, erskbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] Encrypted Random Session Key Length: " + str(ersklen) + " at " +str(erskbufferoffset))
 
-			# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION
-			if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION
-				# Product Version
-				negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
-				negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
-				negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
-				streamindex = streamindex + 1 # Skips over a reserved
-				negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
-				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
+	# Negotiate Flags
+	NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
+	print("[i] Got Negotiate flags")
 
-
-			# Parse the NtChallengeResponse we read above
-			if ntcrlen > 0:
-				ntcrstreamindex = 0
-				print("[i] Remaining " + str(ntcrlen - ntcrstreamindex))
-
-				ntcrba, throwaway = streamReadBytes(ba, ntcrbufferoffset, ntcrlen)
-				ntcrresponse, ntcrstreamindex = streamReadBytes(ntcrba, ntcrstreamindex, 16)
-
-				if ntcrlen - ntcrstreamindex < 28:
-					print("[!] Not enough data in the NT Challenge Response byte array")
-
-				else: # this is ntlm_read_ntlm_v2_client_challenge in ntlm_compute.c in FreeRDP
-					ntcrresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
-					ntcrhiresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
-
-					ntcrreserved1,ntcrstreamindex =  streamReadUint16(ntcrba, ntcrstreamindex)
-					ntcrreserved2,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
-
-					ntcrtimestamp,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
-					print("[i] Got Clients timestamp " + str(binascii.hexlify(ntcrtimestamp)))
-
-					ntcrclientchallenge,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
-					print("[i] Got Clients challenge " + str(binascii.hexlify(ntcrclientchallenge)))
-
-					ntcrreserved3,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
-
-					ntcravpairslen = ntcrlen - ntcrstreamindex
-					ntcravpairsba,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, ntcravpairslen )
-
-					print("[i] Remaining " + str(ntcrlen - ntcrstreamindex))
+	# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION
+	if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION
+		# Product Version
+		negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
+		negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
+		negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
+		streamindex = streamindex + 1 # Skips over a reserved
+		negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
+		print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 
 
-					# AV Pairs
+	# Parse the NtChallengeResponse we read above
+	if ntcrlen > 0:
+		ntcrstreamindex = 0
+		print("[i] Remaining " + str(ntcrlen - ntcrstreamindex))
 
-					# TODO - Not finished
-					#  - Parse the NtChallengeResponse buffer above
+		ntcrba, throwaway = streamReadBytes(ba, ntcrbufferoffset, ntcrlen)
+		ntcrresponse, ntcrstreamindex = streamReadBytes(ntcrba, ntcrstreamindex, 16)
+
+		if ntcrlen - ntcrstreamindex < 28:
+			print("[!] Not enough data in the NT Challenge Response byte array")
+
+		else: # this is ntlm_read_ntlm_v2_client_challenge in ntlm_compute.c in FreeRDP
+			ntcrresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
+			ntcrhiresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
+
+			ntcrreserved1,ntcrstreamindex =  streamReadUint16(ntcrba, ntcrstreamindex)
+			ntcrreserved2,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
+
+			ntcrtimestamp,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
+			print("[i] Got Clients timestamp " + str(binascii.hexlify(ntcrtimestamp)))
+
+			ntcrclientchallenge,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
+			print("[i] Got Clients challenge " + str(binascii.hexlify(ntcrclientchallenge)))
+
+			ntcrreserved3,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
+
+			ntcravpairslen = ntcrlen - ntcrstreamindex
+			ntcravpairsba,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, ntcravpairslen )
+
+			print("[i] Remaining " + str(ntcrlen - ntcrstreamindex))
+
+
+			# AV Pairs
+
+			# TODO - Not finished
+			#  - Parse the NtChallengeResponse buffer above
 
 
 
