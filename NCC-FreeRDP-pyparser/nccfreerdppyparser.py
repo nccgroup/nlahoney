@@ -377,6 +377,14 @@ def parseAuthenticate(session, dir ):
 			
 			
 def recalcandCompareMIC(username, domain, password, avflags, binaryarray, serverchallenge, clientchallenge):
+	
+	#
+	# there are two ways to verify if the password supplied is correct
+	# NtProofString - we don't support (see ntlm_message.c) - this is Windows NT, Windows 2000, Windows XP and 
+	#                 Windows Server 2003
+	# Message Integrity Check - we do support
+	#
+
 	print("[i] Cracking..")
 	
 	return False
