@@ -287,6 +287,7 @@ def parseAuthenticate(session, dir ):
 			NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
 			print("[i] Got Negotiate flags")
 			
+		
 			# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION 
 			if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION 
 				# Product Version
@@ -297,7 +298,9 @@ def parseAuthenticate(session, dir ):
 				negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
 				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 				
-				
+			# Save this for later
+			PayloadBufferOffset = streamindex 
+			
 			# Parse the NtChallengeResponse we read above
 			if ntcrlen > 0:
 				ntcrstreamindex = 0
@@ -335,15 +338,11 @@ def parseAuthenticate(session, dir ):
 					
 					flags = aviddata
 					
-					if(flags & 0x00000002):
-						print("[i] Message Integrity Check/Code Present")
-					
-					print("[i] Remaining 2 " + str(ntcrlen - ntcrstreamindex))
-					
-					
-					
-					# TODO - Not TOTALLY finished
-					#  - Parse the NtChallengeResponse buffer above
+			if(flags & 0x00000002):
+				print("[i] Message Integrity Check/Code (MIC) Present at " + str(PayloadBufferOffset))			
+							
+				mic,throwaway =  streamReadBytes(ba, PayloadBufferOffset, 16)
+				print("[i] Got MIC " + str(binascii.hexlify(mic)))
 			
 			
 			
