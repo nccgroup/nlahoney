@@ -246,7 +246,7 @@ def parseChallenge(session, dir):
 				targetinfo,throwaway= streamReadBytes(ba,tibufferoffset,tilen)
 				print("[i] Got Target Info " + str(binascii.hexlify(targetinfo)))
 				
-			return True
+			return True, challenge, targetname, targetinfo
 
 #
 def parseAuthenticate(session, dir ):
@@ -369,20 +369,33 @@ def parseAuthenticate(session, dir ):
 				mic,throwaway =  streamReadBytes(ba, PayloadBufferOffset+2, 16)
 				print("[i] Got MIC " + str(binascii.hexlify(mic)))
 			
+				# Now return a whole host of stuff
+				return True, str(username.decode('utf8', errors='ignore')), str(domain.decode('utf8', errors='ignore')), flags, ba, ntcrclientchallenge, ntcrtimestamp
+				
+			else:
+				return False
 			
 			
-			
-			
-			
+def recalcandCompareMIC(username, domain, password, avflags, binaryarray, serverchallenge, clientchallenge):
+	print("[i] Cracking..")
+	
+	return False
 	
 # Parse the files
 def parsefiles(session, dir):
 
 	# We parse the files
 	if parseNegotiate(session,dir) is True:
-		if parseChallenge(session,dir) is True:
-			if parseAuthenticate(session,dir) is True:
-				print("[i] Cracking..")
+		
+		success, serverchallenge, targetname, targetinfo = parseChallenge(session,dir)
+		
+		if success is True:
+			
+			success, username, domain, avflags, binaryarray, clientchallenge, clienttimestamp = parseAuthenticate(session,dir)
+			
+			if success is True:
+			
+				recalcandCompareMIC(username, domain, "test", avflags, binaryarray, serverchallenge, clientchallenge)
 				# We do some calculations
 
 # Check the files we need exist
