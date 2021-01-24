@@ -370,13 +370,13 @@ def parseAuthenticate(session, dir ):
 				print("[i] Got MIC " + str(binascii.hexlify(mic)))
 			
 				# Now return a whole host of stuff
-				return True, str(username.decode('utf8', errors='ignore')), str(domain.decode('utf8', errors='ignore')), flags, ba, ntcrclientchallenge, ntcrtimestamp
+				return True, str(username.decode('utf8', errors='ignore')), str(domain.decode('utf8', errors='ignore')), flags, ba, ntcrclientchallenge, ntcrtimestamp, mic, str(workstation.decode('utf8', errors='ignore'))
 				
 			else:
 				return False
 			
 			
-def recalcandCompareMIC(username, domain, password, avflags, binaryarray, serverchallenge, clientchallenge):
+def recalcandCompareMIC(username, domain, password, avflags, binaryarray, serverchallenge, clientchallenge, mic):
 	
 	#
 	# there are two ways to verify if the password supplied is correct
@@ -385,7 +385,33 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	# Message Integrity Check - we do support
 	#
 
+	ourmic = None
+	
 	print("[i] Cracking..")
+
+	#
+	# TODO - Yawn....
+	#
+
+	# compute LM v2 response
+	
+	# compute NTLM v2 response
+	
+	# generate key exchange
+	
+	# decrypt random session key
+	
+	# generate exported session key
+	
+	# compute our Message Integrity Check
+	
+	# compare Message Integrity Check
+	if ourmic == mic:
+		return True
+	else:
+		return False
+	
+	
 	
 	return False
 	
@@ -399,12 +425,18 @@ def parsefiles(session, dir):
 		
 		if success is True:
 			
-			success, username, domain, avflags, binaryarray, clientchallenge, clienttimestamp = parseAuthenticate(session,dir)
+			success, username, domain, avflags, binaryarray, clientchallenge, clienttimestamp, mic, workstation = parseAuthenticate(session,dir)
 			
 			if success is True:
 			
-				recalcandCompareMIC(username, domain, "test", avflags, binaryarray, serverchallenge, clientchallenge)
 				# We do some calculations
+				success = recalcandCompareMIC(username, domain, "test", avflags, binaryarray, serverchallenge, clientchallenge, mic)
+				
+				if success is True:
+					print("[*] Attacker from " + workstation + " using " + domain + "\\" + username + " with " + password) 
+				else:
+					print("[!] Attacker from " + workstation + " using " + domain + "\\" + username + " but we failed to crack the password")
+				
 
 # Check the files we need exist
 def checkfiles(session, dir):
