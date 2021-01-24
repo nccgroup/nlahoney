@@ -370,13 +370,13 @@ def parseAuthenticate(session, dir ):
 				print("[i] Got MIC " + str(binascii.hexlify(mic)))
 			
 				# Now return a whole host of stuff
-				return True, str(username.decode('utf8', errors='ignore')), str(domain.decode('utf8', errors='ignore')), flags, ba, ntcrclientchallenge, ntcrtimestamp, mic, str(workstation.decode('utf8', errors='ignore'))
+				return True, str(username.decode('utf8', errors='ignore')), str(domain.decode('utf8', errors='ignore')), flags, ba, ntcrclientchallenge, ntcrtimestamp, mic, str(workstation.decode('utf8', errors='ignore')), ntcrresponse
 				
 			else:
 				return False
 			
 			
-def recalcandCompareMIC(username, domain, password, avflags, binaryarray, serverchallenge, clientchallenge, mic):
+def recalcandCompareMIC(username, domain, password, avflags, binaryarray, serverchallenge, clientchallenge, mic, ntcrresponse):
 	
 	#
 	# there are two ways to verify if the password supplied is correct
@@ -421,6 +421,10 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	#     to see if the entered password is correct
 	# this would reduce the computational overhead per password significantly as we wouldn't need to do the below
     # i.e. it would be two round of HMAC-MD5	
+	#
+	# if this is correct the below logic will work
+	if ntcrresponse == ntlmv2response:
+		return True
 	
 	# generate key exchange - see ntlm_generate_key_exchange_key
 	# this is simply the SessionBaseKey we calculated just before
@@ -456,12 +460,12 @@ def parsefiles(session, dir):
 		
 		if success is True:
 			
-			success, username, domain, avflags, binaryarray, clientchallenge, clienttimestamp, mic, workstation = parseAuthenticate(session,dir)
+			success, username, domain, avflags, binaryarray, clientchallenge, clienttimestamp, mic, workstation, ntcrresponse = parseAuthenticate(session,dir)
 			
 			if success is True:
 			
 				# We do some calculations
-				success = recalcandCompareMIC(username, domain, "test", avflags, binaryarray, serverchallenge, clientchallenge, mic)
+				success = recalcandCompareMIC(username, domain, "test", avflags, binaryarray, serverchallenge, clientchallenge, mic, ntcrresponse)
 				
 				if success is True:
 					print("[*] Attacker from " + workstation + " using " + domain + "\\" + username + " with " + password) 
