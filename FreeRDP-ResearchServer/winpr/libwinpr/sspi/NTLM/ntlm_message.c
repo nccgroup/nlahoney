@@ -861,6 +861,7 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 	CopyMemory(context->AuthenticateMessage.pvBuffer, Stream_Buffer(s), length);
 	buffer->cbBuffer = length;
 	Stream_SetPosition(s, PayloadBufferOffset);
+	fprintf(stdout,"[HONEY] MIC Offset %d %08x\n",PayloadBufferOffset,PayloadBufferOffset);
 
 	if (flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK)
 	{
@@ -872,6 +873,9 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 
 		WLog_INFO(TAG,"[HONEY]   got inbound MIC");
 		Stream_Read(s, message->MessageIntegrityCheck, 16);
+		fprintf(stdout,"[HONEY] MIC\n");
+		winpr_HexDump(TAG, WLOG_INFO, message->MessageIntegrityCheck, 16);
+			
 	}
 
 	status = SEC_E_INTERNAL_ERROR;
