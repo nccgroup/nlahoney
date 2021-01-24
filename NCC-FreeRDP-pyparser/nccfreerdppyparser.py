@@ -393,17 +393,38 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	# TODO - Yawn....
 	#
 
-	# compute LM v2 response
+	# compute AuthNtlmHash - see ntlm_SetContextAttributesW 
+
+	# compute LM v2 response - see ntlm_compute_lm_v2_response
+	# this involves ntlm_compute_ntlm_v2_hash using the output of AuthNtlmHash
+	# THEN concatenating  the server challenge and client challenge
+	# THEN doing an HMAC-MD5
+	# THEN concatenating the HMAC-MD5 with the Client Challenge
+	responsestage1 = None
 	
-	# compute NTLM v2 response
+	# compute NTLM v2 response - see ntlm_compute_ntlm_v2_response
+	# this involves ntlm_compute_ntlm_v2_hash using the output of AuthNtlmHash
+	# THEN concatenating the two fixed bytes, client timestamp, client challenge, reserved 4 bytes into temp
+	# THEN concatenating temp with the server challenge
+	# THEN doing an HMAC-MD5
+	# THEN taking the output and then
+	#  - raw it becomes NtProofString
+	#  - from byte 16 onwards into a temp buffer (doesnt appear to be used)
+	#  - computing the SessionBaseKey which is HMAC-MD5 hash of NtProofString using the NTLMv2 hash as the key
 	
-	# generate key exchange
+	# generate key exchange - see ntlm_generate_key_exchange_key
+	# this is simply the SessionBaseKey we calculated just before
 	
-	# decrypt random session key
+	# decrypt random session key - see ntlm_decrypt_random_session_key
+	# ... TODO here little bit blegh ...
 	
-	# generate exported session key
+	# generate exported session key - see ntlm_generate_exported_session_key
+	# this is the RandomSessionKey we calculated just before 
 	
-	# compute our Message Integrity Check
+	# compute our Message Integrity Check - ntlm_compute_message_integrity_check
+	# we zero the MIC in the authenticate message (as are about to calculate it)
+	# the HMAC-MD5 hash of ConcatenationOf(NEGOTIATE_MESSAGE, CHALLENGE_MESSAGE, AUTHENTICATE_MESSAGE) 
+	# all using the ExportedSessionKey
 	
 	# compare Message Integrity Check
 	if ourmic == mic:
