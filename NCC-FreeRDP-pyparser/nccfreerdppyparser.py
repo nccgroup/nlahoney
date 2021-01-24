@@ -411,11 +411,12 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	# then does HMAC-MD5 using the NTLMv1 from the SAM file as the key
 	
 	
+	
 	buffer = serverchallenge + clientchallenge
 	if len(buffer) != 16:
 		return False
 	
-	lmv2response = hmac.new(testsamhash, buffer)
+	#lmv2response = hmac.new(testsamhash, buffer)
 	
 	
 	
