@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/env python3
 
 #
 # This parses a session from a server perspective
@@ -100,12 +100,12 @@ def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 	return avid,data
 
 #
-def parseNegotiate(session):
+def parseNegotiate(session, dir):
 	print("[i] ** Parsing Negotiate for session " + str(session))
 	
 	streamindex = 0
 	
-	strFile = "/tmp/" + str(session) + ".NegotiateIn.bin"
+	strFile = dir +"/" + str(session) + ".NegotiateIn.bin"
 	hFile = open(strFile, 'rb')
 	ba = bytearray(hFile.read())
 	
@@ -162,12 +162,12 @@ def parseNegotiate(session):
 			
 
 #
-def parseChallenge(session):
+def parseChallenge(session, dir):
 	print("[i] ** Parsing Challenge for session " + str(session))
 	
 	streamindex = 0
 	
-	strFile = "/tmp/" + str(session) + ".ChallengeOut.bin"
+	strFile = dir + "/" + str(session) + ".ChallengeOut.bin"
 	hFile = open(strFile, 'rb')
 	ba = bytearray(hFile.read())
 	
@@ -227,12 +227,12 @@ def parseChallenge(session):
 			return True
 
 #
-def parseAuthenticate(session):
+def parseAuthenticate(session, dir ):
 	print("[i] ** Parsing Authenticate for session " + str(session))
 	
 	streamindex = 0
 	
-	strFile = "/tmp/" + str(session) + ".AuthenticateIn.bin"
+	strFile = dir +"/" + str(session) + ".AuthenticateIn.bin"
 	hFile = open(strFile, 'rb')
 	ba = bytearray(hFile.read())
 	
@@ -350,18 +350,18 @@ def parseAuthenticate(session):
 			
 	
 # Parse the files
-def parsefiles(session):
+def parsefiles(session, dir):
 
 	# We parse the files
-	if parseNegotiate(session) is True:
-		if parseChallenge(session) is True:
-			if parseAuthenticate(session) is True:
+	if parseNegotiate(session,dir) is True:
+		if parseChallenge(session,dir) is True:
+			if parseAuthenticate(session,dir) is True:
 				print("[i] Cracking..")
 				# We do some calculations
 
 # Check the files we need exist
-def checkfiles(session):
-	strFile = "/tmp/" + str(session) + ".NegotiateIn.bin"
+def checkfiles(session, dir):
+	strFile = dir + "/" + str(session) + ".NegotiateIn.bin"
 	
 	if os.path.exists(strFile) is not True:
 		print("[!] Could not file inbound Negotiate packet file " + strFile)
@@ -369,7 +369,7 @@ def checkfiles(session):
 	else:
 		print("[i] Found Negotiate packet file")
 	
-	strFile = "/tmp/" + str(session) + ".ChallengeOut.bin"
+	strFile = dir + "/" + str(session) + ".ChallengeOut.bin"
 		
 	if os.path.exists(strFile) is not True:
 		print("[!] Could not file outbound Challenge packet file " + strFile )
@@ -377,7 +377,7 @@ def checkfiles(session):
 	else:
 		print("[i] Found Challenge packet file")
 		
-	strFile = "/tmp/" + str(session) + ".AuthenticateIn.bin"
+	strFile = dir + "/" + str(session) + ".AuthenticateIn.bin"
 		
 	if os.path.exists(strFile) is not True:
 		print("[!] Could not file inbound Authenticate file" + strFile)
@@ -388,14 +388,14 @@ def checkfiles(session):
 	return True
 	
 # Process 
-def process(session):
+def process(session, dir):
 	print("[i] Processing session " + str(session))
 
-	if checkfiles(session) is not True:
+	if checkfiles(session,dir) is not True:
 		print("[!] Could not find required session files")
 		return
 	else:
-		parsefiles(session)
+		parsefiles(session,dir)
 		
 # Entry point to script
 if sys.version_info[0] < 3:
@@ -403,8 +403,9 @@ if sys.version_info[0] < 3:
 	sys.exit(1)
 	
 parser = argparse.ArgumentParser()
+parser.add_argument("-d","--dir", help="directory containing dumps", default="/tmp")
 parser.add_argument("session", help="parse this session", type=int)
 args = parser.parse_args()
-process(args.session)
+process(args.session,args.dir)
 
 
