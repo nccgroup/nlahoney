@@ -84,8 +84,31 @@ def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 		avid,avpairlistindex =  streamReadUint16(avpairlist, avpairlistindex)
 		avlen,avpairlistindex =  streamReadUint16(avpairlist, avpairlistindex)
 		
+		if avid == 0:
+			print("[i] Parsing.. AV ID type is MsvAvEOL")
+		elif avid == 1:
+			print("[i] Parsing.. AV ID type is NB Computer Name")
+		elif avid == 2:
+			print("[i] Parsing.. AV ID type is NB Domain Name")
+		elif avid == 3:
+			print("[i] Parsing.. AV ID type is DNS Computer Name")
+		elif avid == 4:
+			print("[i] Parsing.. AV ID type is DNS Domain Name")
+		elif avid == 5:
+			print("[i] Parsing.. AV ID type is DNS Tree Name")
+		elif avid == 6:
+			print("[i] Parsing.. AV ID type is Flags")	
+		elif avid == 7:
+			print("[i] Parsing.. AV ID type is Time Stamp")	
+		elif avid == 8:
+			print("[i] Parsing.. AV ID type is Single Host")	
+		elif avid == 9:
+			print("[i] Parsing.. AV ID type is Target Name")	
+		elif avid == 10:
+			print("[i] Parsing.. AV ID type is Channel Bindings")	
+			
 		if avid == whichavid:
-			print("[d] found it - it is " + str(avlen) + " long")
+			print("[i] Matched AV ID type - it is " + str(avlen) + " bytes long")
 			
 			if avid == 6: # MsvAvFlags
 				data,avpairlistindex =  streamReadUint32(avpairlist, avpairlistindex)
@@ -95,8 +118,7 @@ def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 			break
 		else: # get next
 			avpairlistindex = avpairlistindex + avlen
-			print("[d] next")
-		
+			
 	return avid,data
 
 #
