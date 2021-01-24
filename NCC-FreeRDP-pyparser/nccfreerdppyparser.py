@@ -278,8 +278,10 @@ def parseAuthenticate(session, dir ):
 			print("[i] Got Workstation " + str(workstation.decode('utf8', errors='ignore')))
 			
 			# Encryted Random Session Key
-			bSuccess, streamindex, ersklen, ersklen, erskbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+			bSuccess, streamindex, ersklen, erskmaxlen, erskbufferoffset = streamReadNTLMMessageField(ba, streamindex)
 			print("[i] Encrypted Random Session Key Length: " + str(ersklen) + " at " +str(erskbufferoffset)) 
+			encryptedrandomsessionkey,throwaway = streamReadBytes(ba,erskbufferoffset,ersklen)
+			print("[i] Got Encrypted Random Session Key")
 			
 			# Negotiate Flags
 			NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
