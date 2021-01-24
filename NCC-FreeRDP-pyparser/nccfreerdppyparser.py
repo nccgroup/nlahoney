@@ -412,6 +412,15 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	#  - from byte 16 onwards into a temp buffer (doesnt appear to be used)
 	#  - computing the SessionBaseKey which is HMAC-MD5 hash of NtProofString using the NTLMv2 hash as the key
 	
+	# HYPOTHESIS:
+	#   - above we will just computed NtProofString
+	#   - we can use this with NTLMv2Response ( see ntlm_read_AuthenticateMessage and ntlm_server_AuthenticateComplete)
+	#     to see if the entered password is correct
+	# this would reduce the computational overhead per password significantly as we wouldn't need to do the below
+    # i.e. it would be two round of HMAC-MD5	
+	
+	
+	
 	# generate key exchange - see ntlm_generate_key_exchange_key
 	# this is simply the SessionBaseKey we calculated just before
 	
