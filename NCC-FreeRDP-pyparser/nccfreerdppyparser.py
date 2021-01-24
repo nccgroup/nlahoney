@@ -11,6 +11,7 @@ import os
 import binascii
 import sys
 import hmac
+import hashlib
 
 bDebug = True
 bStreamDebug = False
@@ -404,21 +405,25 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	# THEN doing an HMAC-MD5 of the concatenated buffer with the NTLMv2 hash as the key
 	# THEN concatenating the HMAC-MD5 with the Client Challenge giving us the LMv2 response
 	
-	testsamhash = "8f33e2ebe5960b8738d98a80363786b0" # we would need to do the pre-calc for passwords
+	# Unsure if it needs to be like this or a string
+	testsamhash = bytes.fromhex("8f33e2ebe5960b8738d98a80363786b0") # we would need to do the pre-calc for passwords
 	
 	# NTOWFv2FromHashW
 	# this concatenates the UPPERCASE username and domain
-	# then does HMAC-MD5 using the NTLMv1 from the SAM file as the key
+	# then does HMAC-MD5 using the NTLMv1 from the SAM file as the key results is NTLMv2
+	upperuserandomain = username.upper() + domain.upper()
 	
-	
-	
-	buffer = serverchallenge + clientchallenge
-	if len(buffer) != 16:
+	ntlmv2hash = hmac.new(testsamhash, str.encode(upperuserandomain), hashlib.md5).digest()
+		
+	serverandclientbuffer = serverchallenge + clientchallenge
+	if len(serverandclientbuffer) != 16:
 		return False
 	
-	#lmv2response = hmac.new(testsamhash, buffer)
+	lmv2response = hmac.new(ntlmv2hash, bytes(serverandclientbuffer), hashlib.md5).digest()
 	
-	
+	#
+	# UP TO HERE ON IMPLEMENTATION - NOT TESTED
+	#
 	
 	# compute NTLM v2 response - see ntlm_compute_ntlm_v2_response
 	# this involves ntlm_compute_ntlm_v2_hash using the output of AuthNtlmHash
