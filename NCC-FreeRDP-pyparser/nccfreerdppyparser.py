@@ -339,9 +339,12 @@ def parseAuthenticate(session, dir ):
 					flags = aviddata
 					
 			if(flags & 0x00000002):
-				print("[i] Message Integrity Check/Code (MIC) Present at " + str(PayloadBufferOffset))			
+				# I know know yet why we are off by two here
+				print("[i] Message Integrity Check/Code (MIC) Present at " + str(PayloadBufferOffset+2))			
 							
-				mic,throwaway =  streamReadBytes(ba, PayloadBufferOffset, 16)
+				# I've verified the MIC returned here is correct
+				# from the patched ntlm_message.c on a known session
+				mic,throwaway =  streamReadBytes(ba, PayloadBufferOffset+2, 16)
 				print("[i] Got MIC " + str(binascii.hexlify(mic)))
 			
 			
