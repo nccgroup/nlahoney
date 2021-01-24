@@ -399,19 +399,21 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	# compute LM v2 response - see ntlm_compute_lm_v2_response
 	# this involves ntlm_compute_ntlm_v2_hash to get the hash from our SAM
 	# THEN concatenating  the server challenge and client challenge
-	# THEN doing an HMAC-MD5
-	# THEN concatenating the HMAC-MD5 with the Client Challenge
-	responsestage1 = None
+	# THEN doing an HMAC-MD5 of the concatenated buffer with the NTLMv2 hash as the key
+	# THEN concatenating the HMAC-MD5 with the Client Challenge giving us the LMv2 response
+	lmv2response = None
 	
 	# compute NTLM v2 response - see ntlm_compute_ntlm_v2_response
 	# this involves ntlm_compute_ntlm_v2_hash using the output of AuthNtlmHash
 	# THEN concatenating the two fixed bytes, client timestamp, client challenge, reserved 4 bytes into temp
 	# THEN concatenating temp with the server challenge
-	# THEN doing an HMAC-MD5
+	# THEN doing an HMAC-MD5 of the concatenated buffer with the NTLMv2 hash as the key
 	# THEN taking the output and then
 	#  - raw it becomes NtProofString
 	#  - from byte 16 onwards into a temp buffer (doesnt appear to be used)
 	#  - computing the SessionBaseKey which is HMAC-MD5 hash of NtProofString using the NTLMv2 hash as the key
+	ntlmv2response = None
+	ntproofstring = None
 	
 	# HYPOTHESIS:
 	#   - above we will just computed NtProofString
@@ -419,8 +421,6 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	#     to see if the entered password is correct
 	# this would reduce the computational overhead per password significantly as we wouldn't need to do the below
     # i.e. it would be two round of HMAC-MD5	
-	
-	
 	
 	# generate key exchange - see ntlm_generate_key_exchange_key
 	# this is simply the SessionBaseKey we calculated just before
