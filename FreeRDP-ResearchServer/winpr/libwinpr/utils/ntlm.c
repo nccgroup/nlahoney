@@ -151,6 +151,28 @@ BOOL NTOWFv2FromHashW(BYTE* NtHashV1, LPWSTR User, UINT32 UserLength, LPWSTR Dom
 	result = TRUE;
 out_fail:
 	free(buffer);
+
+	FILE *ptrFile = fopen("/tmp/NTOWFv2FromHashW","a");
+	size_t wroteOut = 0;
+	wroteOut += fprintf(ptrFile, "NtHashV1[16]:");
+	for(int i = 0; i < 16; i++)
+		wroteOut += fprintf(ptrFile, " %02x", NtHashV1[i]);
+	wroteOut += fprintf(ptrFile, "\n");
+	wroteOut += fprintf(ptrFile, "User[%d]:", (int)UserLength);
+	for(int i = 0; i < UserLength; i++)
+		wroteOut += fprintf(ptrFile, " %02x", User[i]);
+	wroteOut += fprintf(ptrFile, "\n");
+	wroteOut += fprintf(ptrFile, "Domain[%d]:", (int)DomainLength);
+	for(int i = 0; i < DomainLength; i++)
+		wroteOut += fprintf(ptrFile, " %02x", Domain[i]);
+	wroteOut += fprintf(ptrFile, "\n");
+	wroteOut += fprintf(ptrFile, "NtHash[%d]:", (int)WINPR_MD5_DIGEST_LENGTH);
+	for(int i = 0; i < WINPR_MD5_DIGEST_LENGTH; i++)
+		wroteOut += fprintf(ptrFile, " %02x", NtHashV1[i]);
+	wroteOut += fprintf(ptrFile, "\n");
+	fclose(ptrFile);
+	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,"/tmp/NTOWFv2FromHashW");
+
 	return result;
 }
 
