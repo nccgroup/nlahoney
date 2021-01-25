@@ -420,7 +420,20 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 		return False
 	
 	lmv2response = hmac.new(ntlmv2hash, bytes(serverandclientbuffer), hashlib.md5).digest()
-	
+
+	def NTOWFv2FromHashW(NtHashV1, User, Domain):
+		mid = len(User) // 2
+		upperuserandomain = User[:mid].upper() + User[mid:]
+		return hmac.new(NtHashV1, upperuserandomain, hashlib.md5).digest()
+
+	if NTOWFv2FromHashW(
+	    bytes.fromhex("88 46 f7 ea ee 8f b1 17 ad 06 bd d8 30 b7 58 6c"),
+	    bytes.fromhex("75 73 65 72 6e 61 6d 65 20 00 00 00 25 00 00 00"),
+	    bytes.fromhex(""),
+	    ) != bytes.fromhex("66 1e 58 eb 67 43 79 83 26 f3 88 fc 5e db 0b 3a"):
+		print("[!] NTOWFv2FromHashW mismatch")
+		return False
+
 	#
 	# UP TO HERE ON IMPLEMENTATION - NOT TESTED
 	#

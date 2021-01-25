@@ -168,7 +168,7 @@ out_fail:
 	wroteOut += fprintf(ptrFile, "\n");
 	wroteOut += fprintf(ptrFile, "NtHash[%d]:", (int)WINPR_MD5_DIGEST_LENGTH);
 	for(int i = 0; i < WINPR_MD5_DIGEST_LENGTH; i++)
-		wroteOut += fprintf(ptrFile, " %02x", NtHashV1[i]);
+		wroteOut += fprintf(ptrFile, " %02x", NtHash[i]);
 	wroteOut += fprintf(ptrFile, "\n");
 	fclose(ptrFile);
 	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,"/tmp/NTOWFv2FromHashW");
