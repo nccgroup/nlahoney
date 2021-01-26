@@ -406,33 +406,28 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	# THEN concatenating the HMAC-MD5 with the Client Challenge giving us the LMv2 response
 	
 	# Unsure if it needs to be like this or a string
-	testsamhash = bytes.fromhex("8f33e2ebe5960b8738d98a80363786b0") # we would need to do the pre-calc for passwords
-	
+	testsamhash = bytes.fromhex("88 46 f7 ea ee 8f b1 17 ad 06 bd d8 30 b7 58 6c") # we would need to do the pre-calc for passwords
+	testntlmv1 = bytes.fromhex('88 46 f7 ea ee 8f b1 17 ad 06 bd d8 30 b7 58 6c')
+	testusername = bytes.fromhex('75 73 65 72 6e 61 6d 65').decode().encode('utf-16le')	# 'username'
+	testdomain = bytes.fromhex('64 6f 6d 61 69 6e').decode().encode('utf-16le')	# 'domain'
+	testbuffer = bytes.fromhex('55 00 53 00 45 00 52 00 4e 00 41 00 4d 00 45 00 64 00 6f 00 6d 00 61 00 69 00 6e 00')	# 'USERNAMEdomain'
+	testntlmv2 = bytes.fromhex('a3 06 37 10 10 c4 39 fe c3 97 ec 2b 83 66 17 17')
+
 	# NTOWFv2FromHashW
 	# this concatenates the UPPERCASE username and domain
 	# then does HMAC-MD5 using the NTLMv1 from the SAM file as the key results is NTLMv2
-	upperuserandomain = username.upper() + domain.upper()
-	
-	ntlmv2hash = hmac.new(testsamhash, str.encode(upperuserandomain), hashlib.md5).digest()
-		
+	upperuserandomain = testusername.upper() + testdomain
+
+	ntlmv2hash = hmac.new(testsamhash, upperuserandomain, hashlib.md5).digest()
+
+	if ntlmv2hash != testntlmv2:
+		print("[!] ntlmv2hash miscalculation")
+
 	serverandclientbuffer = serverchallenge + clientchallenge
 	if len(serverandclientbuffer) != 16:
 		return False
-	
+
 	lmv2response = hmac.new(ntlmv2hash, bytes(serverandclientbuffer), hashlib.md5).digest()
-
-	def NTOWFv2FromHashW(NtHashV1, User, Domain):
-		mid = len(User) // 2
-		upperuserandomain = User[:mid].upper() + User[mid:]
-		return hmac.new(NtHashV1, upperuserandomain, hashlib.md5).digest()
-
-	if NTOWFv2FromHashW(
-	    bytes.fromhex("88 46 f7 ea ee 8f b1 17 ad 06 bd d8 30 b7 58 6c"),
-	    bytes.fromhex("75 73 65 72 6e 61 6d 65 20 00 00 00 25 00 00 00"),
-	    bytes.fromhex(""),
-	    ) != bytes.fromhex("66 1e 58 eb 67 43 79 83 26 f3 88 fc 5e db 0b 3a"):
-		print("[!] NTOWFv2FromHashW mismatch")
-		return False
 
 	#
 	# UP TO HERE ON IMPLEMENTATION - NOT TESTED
@@ -503,7 +498,7 @@ def parsefiles(session, dir):
 				success = recalcandCompareMIC(username, domain, "test", avflags, binaryarray, serverchallenge, clientchallenge, mic, ntcrresponse)
 				
 				if success is True:
-					print("[*] Attacker from " + workstation + " using " + domain + "\\" + username + " with " + password) 
+					print("[*] Attacker from " + workstation.decode() + " using " + domain.decode() + "\\" + username.decode() + " with " + password)
 				else:
 					print("[!] Attacker from " + workstation + " using " + domain + "\\" + username + " but we failed to crack the password")
 				
