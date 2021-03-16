@@ -373,8 +373,8 @@ def parseAuthenticate(session, dir ):
 				print("[i] Got MIC " + str(binascii.hexlify(mic)))
 
 				# Now return a whole host of stuff
-				return True, str(username.decode('utf8', errors='ignore')), str(domain.decode('utf8', errors='ignore')), flags, ba, ntcrclientchallenge, ntcrtimestamp, mic, str(workstation.decode('utf8', errors='ignore')), ntcrresponse
-				
+				return True, username.decode('utf-8', errors='ignore').encode('utf-16le'), domain.decode('utf-8', errors='ignore').encode('utf-16le'), flags, ba, ntcrclientchallenge, ntcrtimestamp, mic, workstation.decode('utf-8', errors='ignore').encode('utf-16le'), ntcrresponse
+
 			else:
 				return False
 			
@@ -501,8 +501,8 @@ def parsefiles(session, dir):
 				if success is True:
 					print("[*] Attacker from " + workstation.decode() + " using " + domain.decode() + "\\" + username.decode() + " with " + password)
 				else:
-					print("[!] Attacker from " + workstation + " using " + domain + "\\" + username + " but we failed to crack the password")
-				
+					print("[!] Attacker from " + workstation.decode() + " using " + domain.decode() + "\\" + username.decode() + " but we failed to crack the password")
+
 
 # Check the files we need exist
 def checkfiles(session, dir):
