@@ -449,7 +449,7 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	# HYPOTHESIS:
 	#   - above we will just computed NtProofString
 	#   - we can use this with NTLMv2Response ( see ntlm_read_AuthenticateMessage and ntlm_server_AuthenticateComplete)
-	#     to see if the entered password is correct
+	#	  to see if the entered password is correct
 	# this would reduce the computational overhead per password significantly as we wouldn't need to do the below
 	# i.e. it would be two round of HMAC-MD5
 	#
