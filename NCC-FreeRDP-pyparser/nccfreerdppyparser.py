@@ -5,13 +5,14 @@
 #
 
 # Imports
-import glob
 import argparse
-import os
 import binascii
-import sys
-import hmac
+import glob
 import hashlib
+import hmac
+import os
+import sys
+import unittest
 
 bDebug = True
 bStreamDebug = False
