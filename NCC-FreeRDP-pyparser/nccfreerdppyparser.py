@@ -541,16 +541,15 @@ def process(session, dir):
 		return
 	else:
 		parsefiles(session,dir)
-		
+
+
 # Entry point to script
 if sys.version_info[0] < 3:
 	print("[!] Must be Python 3")
 	sys.exit(1)
-	
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-d","--dir", help="directory containing dumps", default="/tmp")
 parser.add_argument("session", help="parse this session", type=int)
 args = parser.parse_args()
 process(args.session,args.dir)
-
-
