@@ -396,8 +396,8 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	# TODO - Yawn....
 	#
 
-	# compute AuthNtlmHash - see ntlm_SetContextAttributesW 
-	# NOT sure we need to do this 
+	# compute AuthNtlmHash - see ntlm_SetContextAttributesW
+	# NOT sure we need to do this
 
 	# compute LM v2 response - see ntlm_compute_lm_v2_response
 	# this involves ntlm_compute_ntlm_v2_hash to get the hash from our SAM
