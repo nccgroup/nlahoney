@@ -377,8 +377,176 @@ def parseAuthenticate(session, dir ):
 
 			else:
 				return False
-			
-			
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_server_AuthenticateComplete\(
+def ntlm_server_AuthenticateComplete(context):
+	if ntlm_compute_lm_v2_response(context) == False:
+		print("ntlm_compute_lm_v2_response failed")
+		return False
+	if ntlm_compute_ntlm_v2_response(context) == False:
+		print("ntlm_compute_ntlm_v2_response failed")
+		return False
+	ourmic = ntlm_compute_message_integrity_check(context)
+	if ourmic == False:
+		print("ntlm_compute_message_integrity_check failed")
+		return False
+	mic = context['AuthenticateMessage']['MessageIntegrityCheck']
+	return ourmic == mic
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_compute_lm_v2_response\(
+def ntlm_compute_lm_v2_response(context):
+	NtlmV2Hash = ntlm_compute_ntlm_v2_hash(context)
+	if NtlmV2Hash == False:
+		print("ntlm_compute_ntlm_v2_hash failed")
+		return False
+	context["NtlmV2Hash"] = NtlmV2Hash
+	value = context["ServerChallenge"] + context["ClientChallenge"]
+	# Compute the HMAC-MD5 hash of the resulting value using the NTLMv2 hash as the key
+	response = hmac_md5(context["NtlmV2Hash"], value)
+	# Concatenate the resulting HMAC-MD5 hash and the client challenge, giving us the LMv2 response
+	response += context["ClientChallenge"]
+	context["LmChallengeResponse"] = response
+	return True
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^static int ntlm_compute_ntlm_v2_hash\(
+def ntlm_compute_ntlm_v2_hash(context):
+	credentials = context["credentials"]
+
+	if !credentials:
+		return False
+	elif "NtlmHash" in context:
+		# NULL
+		return False
+	elif credentials.get("identity") and credentials["identity"].get("Password") and len(credentials["identity"]["Password"]) > SSPI_CREDENTIALS_HASH_LENGTH_OFFSET:
+		# Long hash
+		# Special case for WinPR: password hash
+		NtlmHash = ntlm_convert_password_hash(context)
+		if NtlmHash == False:
+			return False
+		context["NtlmHash"] = NtlmHash
+		hash = NTOWFv2FromHashW(context["NtlmHash"], credentials["identity"]["User"], credentials["identity"]["Domain"])
+	elif credentials.get("identity") and credentials["identity"].get("Password"):
+		# Password
+		hash = NTOWFv2W(credentials["identity"]["Password"], credentials["identity"]["User"], credentials["identity"]["Domain"])
+	elif credentials.get("HashCallback"):
+		# Hash call back
+		proofValue = ntlm_computeProofValue(context)
+		if proofValue == False:
+			return False
+		micValue = ntlm_computeMicValue(context)
+		if micValue == False
+			return False
+		ret = context["HashCallback"](context["HashCallbackArg"], credentials["identity"], proofValue,
+			context["EncryptedRandomSessionKey"],
+			context["AUTHENTICATE_MESSAGE"]["MessageIntegrityCheck"],
+			micValue,
+			hash)
+		return ret
+	elif context.get("UseSamFileDatabase"):
+		# Using SAM
+		ret = ntlm_fetch_ntlm_v2_hash(context)
+		return ret
+
+	return True
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^static int ntlm_fetch_ntlm_v2_hash\(
+def ntlm_fetch_ntlm_v2_hash(context):
+	credentials = context["credentials"]
+	sam = "sam file"
+	entry = SamLookupUserW(sam, credentials["identity"]["User"], credentials["identity"]["Domain"])
+	return NTOWFv2FromHashW(entry["NtHash"], credentials["identity"]["User"], credentials["identity"]["Domain"])
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/utils/ntlm.c:/^BOOL NTOWFv2FromHashW\(
+def NTOWFv2FromHashW(NtHashV1, User, Domain):
+	"""Return V2 hash from V1 hash, user, and domain.
+
+	>>> NTOWFv2FromHashW(
+	...	 b'\x88\x46\xf7\xea\xee\x8f\xb1\x17\xad\x06\xbd\xd8\x30\xb7\x58\x6c',
+	...	 'username'.encode('utf-16le'),
+	...	 'domain'.encode('utf-16le')
+	...	 ) == b'\xa3\x06\x37\x10\x10\xc4\x39\xfe\xc3\x97\xec\x2b\x83\x66\x17\x17'
+	True
+	"""
+
+	# Concatenate(UpperCase(User), Domain)
+	buffer = User.upper() + Domain
+
+	# Compute the HMAC-MD5 hash of the above value using the NTLMv1 hash as the key, the result is
+	# the NTLMv2 hash
+	NtHash = winpr_HMAC(hashlib.md5, NtHashV1, buffer)
+	return NtHash
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/utils/ntlm.c:/^BOOL NTOWFv2W\(
+def NTOWFv2W(Password, User, Domain):
+	NtHashV1 = NTOWFv1W(Password)
+	if NtHashV1 == False
+		return False
+	return NTOWFv2FromHashW(NtHashV1, User, Domain)
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/utils/ntlm.c:/^BOOL NTOWFv1W\(
+def NTOWFv1W(Password):
+	return MD4(Password)
+
+
+def winpr_HMAC(digest, key, msg):
+	return hmac.digest(key, msg, digest)
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_compute_ntlm_v2_response\(
+def ntlm_compute_ntlm_v2_response(context):
+	TargetInfo = context["ChallengeTargetInfo"]
+	# Compute the NTLMv2 hash
+	NtlmV2Hash = ntlm_compute_ntlm_v2_hash(context)
+	if NtlmV2Hash == False:
+		print("ntlm_compute_ntlm_v2_hash failed")
+		return False
+
+	# Construct temp
+	blob = "\x01"	# RespType (1 byte)
+	blob += "\x01"	# HighRespType (1 byte)
+	blob += "\x00\x00"	# Reserved1 (2 bytes)
+	blob += "\x00\x00\x00\x00"	# Reserved2 (4 bytes)
+	blob += context["Timestamp"]	# Timestamp (8 bytes)
+	blob += context["ClientChallenge"]	# ClientChallenge (8 bytes)
+	blob += "\x00\x00\x00\x00"	# Reserved3 (4 bytes)
+	blob += TargetInfo
+	ntlm_v2_temp = blob
+
+	# Concatenate server challenge with temp
+	blob = context["ServerChallenge"]
+	blob += ntlm_v2_temp
+	ntlm_v2_temp_chal = blob
+	context["NtProofString"] = winpr_HMAC(hashlib.md5, context["NtlmV2Hash"], ntlm_v2_temp_chal)
+
+	# NtChallengeResponse, Concatenate NTProofStr with temp
+	# result of above HMAC
+	blob = context["NtProofString"]
+	blob += ntlm_v2_temp
+	context["NtChallengeResponse"] = blob
+
+	# Compute SessionBaseKey, the HMAC-MD5 hash of NTProofStr using the NTLMv2 hash as the key
+	context["SessionBaseKey"] = winpr_HMAC(hashlib.md5, context["NtlmV2Hash"], context["NtProofString"])
+
+	return True
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_compute_message_integrity_check\(
+def ntlm_compute_message_integrity_check(context):
+	msg = context["NegotiateMessage"]	# this is from the client
+	msg += context["ChallengeMessage"]	# this is from us
+	msg += context["AuthenticateMessage"]
+	# mic is the output
+	mic = winpr_HMAC(hashlib.md5, context["ExportedSessionKey"])
+	return mic
+
+
 def recalcandCompareMIC(username, domain, password, avflags, binaryarray, serverchallenge, clientchallenge, mic, ntcrresponse):
 
 	#
@@ -472,14 +640,8 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	# all using the ExportedSessionKey
 
 	# compare Message Integrity Check
-	if ourmic == mic:
-		return True
-	else:
-		return False
-
-
-
-	return False
+	context = {}
+	return ntlm_server_AuthenticateComplete(context)
 
 # Parse the files
 def parsefiles(session, dir):
