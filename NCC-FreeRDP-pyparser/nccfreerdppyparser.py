@@ -11,6 +11,7 @@ import glob
 import hashlib
 import hmac
 import os
+import struct
 import sys
 import unittest
 
@@ -19,6 +20,12 @@ from md4 import MD4
 
 bDebug = True
 bStreamDebug = False
+
+MsvAvFlags = 6
+MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK = 0x00000002
+NTLMSSP_NEGOTIATE_KEY_EXCH = 0x40000000
+NTLMSSP_NEGOTIATE_VERSION = 0x02000000
+SSPI_CREDENTIALS_HASH_LENGTH_OFFSET = 512
 
 def streamGetRemainingBytes(barray, streamindex):
 	return (len(barray) - streamindex)
@@ -116,7 +123,7 @@ def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 		if avid == whichavid:
 			print("[i] Matched AV ID type - it is " + str(avlen) + " bytes long")
 
-			if avid == 6: # MsvAvFlags
+			if avid == MsvAvFlags:
 				data,avpairlistindex =  streamReadUint32(avpairlist, avpairlistindex)
 
 			break
@@ -176,8 +183,7 @@ def parseNegotiate(session, dir):
 			bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
 			print("[i] Workstation Length: " + str(len) + " at " +str(bufferoffset))
 
-			# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION
-			if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION
+			if NegotiateFlags & NTLMSSP_NEGOTIATE_VERSION:
 				# Product Version
 				negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
 				negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
@@ -232,8 +238,7 @@ def parseChallenge(session, dir):
 			bSuccess, streamindex, tilen, timaxlen, tibufferoffset = streamReadNTLMMessageField(ba, streamindex)
 			print("[i] Target Info Length: " + str(tilen) + " at " +str(tibufferoffset))
 
-			# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION
-			if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION
+			if NegotiateFlags & NTLMSSP_NEGOTIATE_VERSION:
 				# Product Version
 				negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
 				negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
@@ -255,144 +260,246 @@ def parseChallenge(session, dir):
 			return True, challenge, targetname, targetinfo
 
 #
-def parseAuthenticate(session, dir ):
+def parseAuthenticate(session, dir, context):
 	print("[i] ** Parsing Authenticate for session " + str(session))
-
-	streamindex = 0
 
 	strFile = dir +"/" + str(session) + ".AuthenticateIn.bin"
 	hFile = open(strFile, 'rb')
 	ba = bytearray(hFile.read())
 
+	return ntlm_read_AuthenticateMessage(context, ba)
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_AuthenticateMessage\(
+def ntlm_read_AuthenticateMessage(context, buffer):
+	ba = buffer
+	streamindex = 0
+	context["AUTHENTICATE_MESSAGE"] = {}
+	message = context["AUTHENTICATE_MESSAGE"]
+
 	ret,streamindex = checkHeaderandGetType(ba,streamindex)
 	if ret is False:
 		print("[!] Packet magic is not present ")
 		return False
-	elif ret != 3: # MESSAGE_TYPE_AUTHENTICATE
+	if ret != 3: # MESSAGE_TYPE_AUTHENTICATE
 		print("[!] Incorrect message type " + str(ret))
 		return False
-	else:
-		remaining = streamGetRemainingBytes(ba,streamindex);
-		if remaining < 4:
-			print("[!] Not enough bytes remaining " + str(remaining.stream))
+	remaining = streamGetRemainingBytes(ba, streamindex);
+	if remaining < 4:
+		print("[!] Not enough bytes remaining " + str(remaining))
+		return False
+
+	# LmChallengeResponse
+	bSuccess, streamindex, lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+
+	# NtChallengeResponse
+	#  Note: client challenge is in here and the message integrity code
+	bSuccess, streamindex, ntcrlen, ntcrmaxlen, ntcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+
+	# Domain Name
+	bSuccess, streamindex, domlen, dommaxlen, dombufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] Domain Name Length: " + str(domlen) + " at " +str(dombufferoffset))
+
+	# User Name
+	bSuccess, streamindex, usrlen, usrmaxlen, usrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] User Name Length: " + str(usrlen) + " at " +str(usrbufferoffset))
+
+	# Workstation
+	bSuccess, streamindex, wslen, wsmaxlen, wsbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] Workstation Length: " + str(wslen) + " at " +str(wsbufferoffset))
+
+	# Encryted Random Session Key
+	bSuccess, streamindex, ersklen, erskmaxlen, erskbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] Encrypted Random Session Key Length: " + str(ersklen) + " at " +str(erskbufferoffset))
+	message["EncryptedRandomSessionKey"], __ = streamReadBytes(ba,erskbufferoffset,ersklen)
+	print("[i] Got Encrypted Random Session Key")
+
+	# Negotiate Flags
+	message["NegotiateFlags"], streamindex  = streamReadUint32(ba,streamindex)
+	context["NegotiateKeyExchange"] = (message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_KEY_EXCH) != 0
+	print("[i] Got Negotiate flags")
+
+	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
+		message["Version"] = {}
+		if ntlm_read_version_info(ba, streamindex, message["Version"]) == False:
+			print("ntlm_read_AuthenticateMessage: ntlm_read_version_info failed")
+			return False
+		streamindex += 8	# Version (8 bytes)
+
+	# Save this for later
+	PayloadBufferOffset = streamindex
+
+	message["DomainName"], __ = streamReadBytes(ba,dombufferoffset,domlen)
+	print("[i] Got Domain " + str(message["DomainName"].decode('utf8', errors='ignore')))
+	message["UserName"], __ = streamReadBytes(ba,usrbufferoffset,usrlen)
+	print("[i] Got User Name " + str(message["UserName"].decode('utf8', errors='ignore')))
+	message["Workstation"], __ = streamReadBytes(ba,wsbufferoffset,wslen)
+	print("[i] Got Workstation " + str(message["Workstation"].decode('utf8', errors='ignore')))
+	message["LmChallengeResponse"], __ = streamReadBytes(ba, lmcrbufferoffset, lmcrlen)
+	print("[i] LM Challenge Response Length: " + str(lmcrlen) + " at " +str(lmcrbufferoffset))
+	message["NtChallengeResponse"], __ = streamReadBytes(ba, ntcrbufferoffset, ntcrlen)
+	print("[i] NT Challenge Response Length: " + str(ntcrlen) + " at " +str(ntcrbufferoffset))
+
+	# Parse the NtChallengeResponse we read above
+	if ntcrlen > 0:
+		snt = message["NtChallengeResponse"]
+		sntindex = 0
+		context["NTLMv2Response"] = {}
+		if ntlm_read_ntlm_v2_response(snt, sntindex, context["NTLMv2Response"]) == False:
+			print("ntlm_read_AuthenticateMessage: ntlm_read_ntlm_v2_response failed: invalid token")
 			return False
 
-		else:
-			# LmChallengeResponse
-			bSuccess, streamindex, lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] LM Challenge Response Length: " + str(lmcrlen) + " at " +str(lmcrbufferoffset))
+		context["NtChallengeResponse"] = message["NtChallengeResponse"]
+		context["ChallengeTargetInfo"] = context["NTLMv2Response"]["Challenge"]["AvPairs"]
+		context["ClientChallenge"] = context["NTLMv2Response"]["Challenge"]["ClientChallenge"][:8]
+		AvFlags = ntlm_av_pair_get(context["NTLMv2Response"]["Challenge"]["AvPairs"],
+			context["NTLMv2Response"]["Challenge"]["cbAvPairs"], MsvAvFlags)
 
-			# NtChallengeResponse
-			#  Note: client challenge is in here and the message integrity code
-			bSuccess, streamindex, ntcrlen, ntcrmaxlen, ntcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] NT Challenge Response Length: " + str(ntcrlen) + " at " +str(ntcrbufferoffset))
-
-			# Domain Name
-			bSuccess, streamindex, domlen, dommaxlen, dombufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Domain Name Length: " + str(domlen) + " at " +str(dombufferoffset))
-			domain,throwaway = streamReadBytes(ba,dombufferoffset,domlen)
-			print("[i] Got Domain " + str(domain.decode('utf8', errors='ignore')))
-
-			# User Name
-			bSuccess, streamindex, usrlen, usrmaxlen, usrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] User Name Length: " + str(usrlen) + " at " +str(usrbufferoffset))
-			username,throwaway = streamReadBytes(ba,usrbufferoffset,usrlen)
-			print("[i] Got User Name " + str(username.decode('utf8', errors='ignore')))
-
-			# Workstation
-			bSuccess, streamindex, wslen, wsmaxlen, wsbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Workstation Length: " + str(wslen) + " at " +str(wsbufferoffset))
-			workstation,throwaway = streamReadBytes(ba,wsbufferoffset,wslen)
-			print("[i] Got Workstation " + str(workstation.decode('utf8', errors='ignore')))
-
-			# Encryted Random Session Key
-			bSuccess, streamindex, ersklen, erskmaxlen, erskbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Encrypted Random Session Key Length: " + str(ersklen) + " at " +str(erskbufferoffset))
-			encryptedrandomsessionkey,throwaway = streamReadBytes(ba,erskbufferoffset,ersklen)
-			print("[i] Got Encrypted Random Session Key")
-
-			# Negotiate Flags
-			NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
-			print("[i] Got Negotiate flags")
+		if AvFlags:
+			flags = Data_Read_UINT32(AvFlags)
+			flags = AvFlags
 
 
-			# NegotiateFlags & 0x02000000 which is NTLMSSP_NEGOTIATE_VERSION
-			if NegotiateFlags & 0x02000000: # NTLMSSP_NEGOTIATE_VERSION
-				# Product Version
-				negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
-				negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
-				negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
-				streamindex = streamindex + 1 # Skips over a reserved
-				negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
-				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
+#		ntcrstreamindex = 0
+#		print("[i] Remaining " + str(ntcrlen - ntcrstreamindex))
+#
+#		ntcrba, throwaway = streamReadBytes(ba, ntcrbufferoffset, ntcrlen)
+#		ntcrresponse, ntcrstreamindex = streamReadBytes(ntcrba, ntcrstreamindex, 16)
+#
+#		if ntcrlen - ntcrstreamindex < 28:
+#			print("[!] Not enough data in the NT Challenge Response byte array")
+#
+#		else: # this is ntlm_read_ntlm_v2_client_challenge in ntlm_compute.c in FreeRDP
+#			ntcrresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
+#			ntcrhiresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
+#
+#			ntcrreserved1,ntcrstreamindex =  streamReadUint16(ntcrba, ntcrstreamindex)
+#			ntcrreserved2,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
+#
+#			ntcrtimestamp,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
+#			print("[i] Got Clients timestamp " + str(binascii.hexlify(ntcrtimestamp)))
+#
+#			ntcrclientchallenge,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
+#			print("[i] Got Clients challenge " + str(binascii.hexlify(ntcrclientchallenge)))
+#
+#			ntcrreserved3,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
+#
+#			#print("[d] Remaining " + str(ntcrlen - ntcrstreamindex))
+#
+#			# AV Pairs
+#
+#			ntcravpairslen = ntcrlen - ntcrstreamindex
+#			ntcravpairsba,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, ntcravpairslen )
+#
+#			avid, aviddata = ntlmAVPairGet(ntcravpairsba, ntcravpairslen, MsvAvFlags)
+#
+#			flags = aviddata
 
-			# Save this for later
-			PayloadBufferOffset = streamindex
+	if flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK:
+		print("[i] Message Integrity Check/Code (MIC) Present at " + str(PayloadBufferOffset))
 
-			# Parse the NtChallengeResponse we read above
-			if ntcrlen > 0:
-				ntcrstreamindex = 0
-				print("[i] Remaining " + str(ntcrlen - ntcrstreamindex))
+		# I've verified the MIC returned here is correct
+		# from the patched ntlm_message.c on a known session
+		mic,throwaway =  streamReadBytes(ba, PayloadBufferOffset, 16)
+		print("[i] Got MIC " + str(binascii.hexlify(mic)))
 
-				ntcrba, throwaway = streamReadBytes(ba, ntcrbufferoffset, ntcrlen)
-				ntcrresponse, ntcrstreamindex = streamReadBytes(ntcrba, ntcrstreamindex, 16)
+		return True
+#		# Now return a whole host of stuff
+#		return (True,
+#			message["UserName"].decode('utf-8', errors='ignore').encode('utf-16le'),
+#			message["DomainName"].decode('utf-8', errors='ignore').encode('utf-16le'),
+#			flags,
+#			ba,
+#			ntcrclientchallenge,
+#			ntcrtimestamp,
+#			mic,
+#			message["Workstation"].decode('utf-8', errors='ignore').encode('utf-16le'),
+#			ntcrresponse)
 
-				if ntcrlen - ntcrstreamindex < 28:
-					print("[!] Not enough data in the NT Challenge Response byte array")
+	else:
+		print("ntlm_read_AuthenticateMessage: flags missing MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK")
+		return False
 
-				else: # this is ntlm_read_ntlm_v2_client_challenge in ntlm_compute.c in FreeRDP
-					ntcrresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
-					ntcrhiresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
 
-					ntcrreserved1,ntcrstreamindex =  streamReadUint16(ntcrba, ntcrstreamindex)
-					ntcrreserved2,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_av_pairs.c:/^NTLM_AV_PAIR\* ntlm_av_pair_get\(
+def ntlm_av_pair_get(pAvPairList, cbAvPairList, AvId):
+	avid, pAvPair = ntlmAVPairGet(pAvPairList, cbAvPairList, AvId)
+	if avid != AvId:
+		return False
+	return pAvPair
 
-					ntcrtimestamp,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
-					print("[i] Got Clients timestamp " + str(binascii.hexlify(ntcrtimestamp)))
 
-					ntcrclientchallenge,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
-					print("[i] Got Clients challenge " + str(binascii.hexlify(ntcrclientchallenge)))
+# ../FreeRDP-ResearchServer/winpr/include/winpr/endian.h:/^#define Data_Read_UINT32\(
+def Data_Read_UINT32(d):
+	return struct.unpack("<I", struct.pack(">I", d))[0]
 
-					ntcrreserved3,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
 
-					#print("[d] Remaining " + str(ntcrlen - ntcrstreamindex))
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_read_ntlm_v2_response\(
+def ntlm_read_ntlm_v2_response(s, streamindex, response):
+	remaining = streamGetRemainingBytes(s, streamindex)
+	if remaining < 16:
+		print(f"ntlm_read_ntlm_v2_response: not enough bytes remaining in stream: {remaining}")
+		return False
+	response["Response"], streamindex = streamReadBytes(s, streamindex, 16)
+	response["Challenge"] = {}
+	return ntlm_read_ntlm_v2_client_challenge(s, streamindex, response["Challenge"])
 
-					# AV Pairs
 
-					ntcravpairslen = ntcrlen - ntcrstreamindex
-					ntcravpairsba,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, ntcravpairslen )
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^static int ntlm_read_ntlm_v2_client_challenge\(
+def ntlm_read_ntlm_v2_client_challenge(s, streamindex, challenge):
+	remaining = streamGetRemainingBytes(s, streamindex)
+	if remaining < 28:
+		print(f"ntlm_read_ntlm_v2_client_challenge: not enough bytes remaining in stream: {remaining}")
+		return False
+	challenge["RespType"], streamindex = streamReadUint8(s, streamindex)
+	challenge["HiRespType"], streamindex = streamReadUint8(s, streamindex)
+	challenge["Reserved1"], streamindex = streamReadUint16(s, streamindex)
+	challenge["Reserved2"], streamindex = streamReadUint32(s, streamindex)
+	challenge["Timestamp"], streamindex = streamReadBytes(s, streamindex, 8)
+	challenge["ClientChallenge"], streamindex = streamReadBytes(s, streamindex, 8)
+	challenge["Reserved3"], streamindex = streamReadUint32(s, streamindex)
+	size = len(s) - streamindex
 
-					avid, aviddata = ntlmAVPairGet(ntcravpairsba, ntcravpairslen, 6) # MsvAvFlags == 6
+	if size < 0 or size > 1<<32:
+		return False
 
-					flags = aviddata
+	challenge["cbAvPairs"] = size
+	challenge["AvPairs"], __ = streamReadBytes(s, streamindex, size)
+	return True
 
-			if(flags & 0x00000002):
-				# I know know yet why we are off by two here
-				print("[i] Message Integrity Check/Code (MIC) Present at " + str(PayloadBufferOffset+2))
 
-				# I've verified the MIC returned here is correct
-				# from the patched ntlm_message.c on a known session
-				mic,throwaway =  streamReadBytes(ba, PayloadBufferOffset+2, 16)
-				print("[i] Got MIC " + str(binascii.hexlify(mic)))
-
-				# Now return a whole host of stuff
-				return True, username.decode('utf-8', errors='ignore').encode('utf-16le'), domain.decode('utf-8', errors='ignore').encode('utf-16le'), flags, ba, ntcrclientchallenge, ntcrtimestamp, mic, workstation.decode('utf-8', errors='ignore').encode('utf-16le'), ntcrresponse
-
-			else:
-				return False
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_read_version_info\(
+def ntlm_read_version_info(s, streamindex, versioninfo):
+	if streamGetRemainingBytes(s, streamindex) < 8:
+		return False
+	# Product Version
+	versioninfo["ProductMajorVersion"], streamindex = streamReadUint8(s, streamindex)	# ProductMajorVersion (1 byte)
+	versioninfo["ProductMinorVersion"], streamindex = streamReadUint8(s, streamindex)	# ProductMinorVersion (1 byte)
+	versioninfo["ProductProductBuild"], streamindex = streamReadUint16(s,streamindex)	# ProductBuild (2 bytes)
+	versioninfo["Reserved"], streamindex = streamReadBytes(s, streamindex, 3) # Reserved (3 bytes)
+	versioninfo["NTLMRevisionCurrent"], streamindex  = streamReadUint8(s, streamindex)	# NTLMRevisionCurrent (1 byte)
+	print("[i] from Version: " +
+		str(versioninfo["ProductMajorVersion"]) +
+		"." +
+		str(versioninfo["ProductMinorVersion"]) +
+		" build (" +
+		str(versioninfo["ProductProductBuild"]) +
+		") NTLM Revision " +
+		str(versioninfo["NTLMRevisionCurrent"]))
+	return True
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_server_AuthenticateComplete\(
 def ntlm_server_AuthenticateComplete(context):
 	if ntlm_compute_lm_v2_response(context) == False:
-		print("ntlm_compute_lm_v2_response failed")
+		print("ntlm_server_AuthenticateComplete: ntlm_compute_lm_v2_response failed")
 		return False
 	if ntlm_compute_ntlm_v2_response(context) == False:
-		print("ntlm_compute_ntlm_v2_response failed")
+		print("ntlm_server_AuthenticateComplete: ntlm_compute_ntlm_v2_response failed")
 		return False
 	ourmic = ntlm_compute_message_integrity_check(context)
 	if ourmic == False:
-		print("ntlm_compute_message_integrity_check failed")
+		print("ntlm_server_AuthenticateComplete: ntlm_compute_message_integrity_check failed")
 		return False
 	mic = context['AuthenticateMessage']['MessageIntegrityCheck']
 	return ourmic == mic
@@ -402,12 +509,12 @@ def ntlm_server_AuthenticateComplete(context):
 def ntlm_compute_lm_v2_response(context):
 	NtlmV2Hash = ntlm_compute_ntlm_v2_hash(context)
 	if NtlmV2Hash == False:
-		print("ntlm_compute_ntlm_v2_hash failed")
+		print("ntlm_compute_lm_v2_response: ntlm_compute_ntlm_v2_hash failed")
 		return False
 	context["NtlmV2Hash"] = NtlmV2Hash
 	value = context["ServerChallenge"] + context["ClientChallenge"]
 	# Compute the HMAC-MD5 hash of the resulting value using the NTLMv2 hash as the key
-	response = hmac_md5(context["NtlmV2Hash"], value)
+	response = winpr_HMAC(hashlib.md5, context["NtlmV2Hash"], value)
 	# Concatenate the resulting HMAC-MD5 hash and the client challenge, giving us the LMv2 response
 	response += context["ClientChallenge"]
 	context["LmChallengeResponse"] = response
@@ -419,6 +526,7 @@ def ntlm_compute_ntlm_v2_hash(context):
 	credentials = context.get("credentials")
 
 	if credentials == None:
+		print("ntlm_compute_ntlm_v2_hash: no credentials")
 		return False
 	elif context.get("NtlmHash"):
 		# NULL
@@ -431,9 +539,11 @@ def ntlm_compute_ntlm_v2_hash(context):
 			return False
 		context["NtlmHash"] = NtlmHash
 		hash = NTOWFv2FromHashW(context["NtlmHash"], credentials["identity"]["User"], credentials["identity"]["Domain"])
+		return hash
 	elif credentials.get("identity") and credentials["identity"].get("Password"):
 		# Password
 		hash = NTOWFv2W(credentials["identity"]["Password"], credentials["identity"]["User"], credentials["identity"]["Domain"])
+		return hash
 	elif credentials.get("HashCallback"):
 		# Hash call back
 		proofValue = ntlm_computeProofValue(context)
@@ -488,14 +598,12 @@ def NTOWFv2FromHashW(NtHashV1, User, Domain):
 # ../FreeRDP-ResearchServer/winpr/libwinpr/utils/ntlm.c:/^BOOL NTOWFv2W\(
 def NTOWFv2W(Password, User, Domain):
 	NtHashV1 = NTOWFv1W(Password)
-	if NtHashV1 == False:
-		return False
 	return NTOWFv2FromHashW(NtHashV1, User, Domain)
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/utils/ntlm.c:/^BOOL NTOWFv1W\(
 def NTOWFv1W(Password):
-	return MD4(Password)
+	return MD4(Password).bytes()
 
 
 def winpr_HMAC(digest, key, msg):
@@ -508,17 +616,17 @@ def ntlm_compute_ntlm_v2_response(context):
 	# Compute the NTLMv2 hash
 	NtlmV2Hash = ntlm_compute_ntlm_v2_hash(context)
 	if NtlmV2Hash == False:
-		print("ntlm_compute_ntlm_v2_hash failed")
+		print("ntlm_compute_ntlm_v2_response: ntlm_compute_ntlm_v2_hash failed")
 		return False
 
 	# Construct temp
-	blob = "\x01"	# RespType (1 byte)
-	blob += "\x01"	# HighRespType (1 byte)
-	blob += "\x00\x00"	# Reserved1 (2 bytes)
-	blob += "\x00\x00\x00\x00"	# Reserved2 (4 bytes)
+	blob = b"\x01"	# RespType (1 byte)
+	blob += b"\x01"	# HighRespType (1 byte)
+	blob += b"\x00\x00"	# Reserved1 (2 bytes)
+	blob += b"\x00\x00\x00\x00"	# Reserved2 (4 bytes)
 	blob += context["Timestamp"]	# Timestamp (8 bytes)
 	blob += context["ClientChallenge"]	# ClientChallenge (8 bytes)
-	blob += "\x00\x00\x00\x00"	# Reserved3 (4 bytes)
+	blob += b"\x00\x00\x00\x00"	# Reserved3 (4 bytes)
 	blob += TargetInfo
 	ntlm_v2_temp = blob
 
@@ -643,30 +751,44 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	# all using the ExportedSessionKey
 
 	# compare Message Integrity Check
-	context = {}
+	context = {
+		"ClientChallenge": clientchallenge,
+		"credentials": {
+			"identity": {
+				"Domain": domain,
+				"Password": password,
+				"User": username,
+			},
+		},
+		"ServerChallenge": serverchallenge,
+	}
 	return ntlm_server_AuthenticateComplete(context)
+
 
 # Parse the files
 def parsefiles(session, dir):
+	context = {}
 
 	# We parse the files
-	if parseNegotiate(session,dir) is True:
+	if parseNegotiate(session,dir) is False:
+		print("parsefiles: parseNegotiate failed")
+		return False
 
-		success, serverchallenge, targetname, targetinfo = parseChallenge(session,dir)
+	success, serverchallenge, targetname, targetinfo = parseChallenge(session,dir)
+	if not success:
+		print("parsefiles: parseChallenge failed")
 
-		if success is True:
+	success = parseAuthenticate(session, dir, context)
+	if not success:
+		print("parsefiles: parseAuthenticate failed")
+		return False
 
-			success, username, domain, avflags, binaryarray, clientchallenge, clienttimestamp, mic, workstation, ntcrresponse = parseAuthenticate(session,dir)
-
-			if success is True:
-
-				# We do some calculations
-				success = recalcandCompareMIC(username, domain, "test", avflags, binaryarray, serverchallenge, clientchallenge, mic, ntcrresponse)
-
-				if success is True:
-					print("[*] Attacker from " + workstation.decode() + " using " + domain.decode() + "\\" + username.decode() + " with " + password)
-				else:
-					print("[!] Attacker from " + workstation.decode() + " using " + domain.decode() + "\\" + username.decode() + " but we failed to crack the password")
+	# We do some calculations
+	success = ntlm_server_AuthenticateComplete(context)
+	if success:
+		print("[*] Attacker from " + context["AUTHENTICATE_MESSAGE"]["Workstation"].decode() + " using " + context["AUTHENTICATE_MESSAGE"]["DomainName"].decode() + "\\" + context["AUTHENTICATE_MESSAGE"]["UserName"].decode() + " with " + "FUTURE password")
+	else:
+		print("[!] Attacker from " + context["AUTHENTICATE_MESSAGE"]["Workstation"].decode() + " using " + context["AUTHENTICATE_MESSAGE"]["DomainName"].decode() + "\\" + context["AUTHENTICATE_MESSAGE"]["UserName"].decode() + " but we failed to crack the password")
 
 
 # Check the files we need exist
