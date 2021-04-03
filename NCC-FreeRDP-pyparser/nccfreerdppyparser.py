@@ -259,15 +259,66 @@ def parseChallenge(session, dir):
 
 			return True, challenge, targetname, targetinfo
 
-#
-def parseAuthenticate(session, dir, context):
-	print("[i] ** Parsing Authenticate for session " + str(session))
 
-	strFile = dir +"/" + str(session) + ".AuthenticateIn.bin"
-	hFile = open(strFile, 'rb')
-	ba = bytearray(hFile.read())
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_ChallengeMessage\(
+def ntlm_read_ChallengeMessage(context, s):
+	StartOffset = s.tell()
+	message = ntlm_read_message_header(s)
+	if message["MessageType"] is not MESSAGE_TYPE_CHALLENGE:
+		raise ValueError("ntlm_read_ChallengeMessage: MessageType is not MESSAGE_TYPE_CHALLENGE")
+	message["TargetName"] = ntlm_read_message_fields(s)	# TargetNameFields (8 bytes)
+	message["NegotiateFlags"] = Stream_Read_UINT32(s)	# NegotiateFlags (4 bytes)
+	context["NegotiateFlags"] = message["NegotiateFlags"]
+	message["ServerChallenge"] = s.read(8)	# ServerChallenge (8 bytes)
+	__ = s.read(8)	# Reserved (8 bytes), should be ignored
+	message["TargetInfo"] = ntlm_read_message_fields(s)
+	if context["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
+		message["Version"] = ntlm_read_version_info(s)
 
-	return ntlm_read_AuthenticateMessage(context, ba)
+	PayloadOffset = s.tell()
+
+	if message["TargetName"]:
+		message["TargetInfo"] = ntlm_read_message_fields_buffer(s)
+		context["ChallengeTargetInfo"] = message["TargetInfo"]
+		AvTimestamp = ntlm_av_pair_get(message["TargetInfo"], len(message["TargetInfo"]), MsvAvTimestamp, cbAvTimestamp)
+
+		if AvTimestamp:
+			context["ChallengeTimestamp"] = ntlm_av_pair_get_value_pointer(AvTimestamp)
+			if not context["ChallengeTimestamp"]:
+				raise ValueError("ntlm_read_ChallengeMessage: ntlm_av_pair_get_value_pointer failed")
+			if context["NTLMv2"]:
+				context["UseMIC"] = True
+
+	length = (PayloadOffset - StartOffset) + len(message["TargetName"]) + len(message["TargetInfo"])
+	s.seek(StartOffset)
+	context["ChallengeMessage"] = s.read(length)
+
+	#TODO? if WITH_DEBUG_NTLM:
+
+	# AV_PAIRs
+	if context["NTLMv2"]:
+		ntlm_construct_authenticate_target_info(context)
+		context["ChallengeTargetInfo"] = context["AuthenticateTargetInfo"]
+
+	ntlm_generate_timestamp(context)	# Timestamp
+	ntlm_compute_lm_v2_response(context)	# LmChallengeResponse
+	ntlm_compute_ntlm_v2_response(context)	# NtChallengeResponse
+	ntlm_generate_key_exchange_key(context)	# KeyExchangeKey
+	ntlm_generate_random_session_key(context)	# RandomSessionKey
+	ntlm_generate_exported_session_key(context)	# ExportedSessionKey
+	ntlm_encrypt_random_session_key(context)	# EncryptedRandomSessionKey
+	# Generate signing keys
+	ntlm_generate_client_signing_key(context)
+	ntlm_generate_server_signing_key(context)
+	# Generate sealing keys
+	ntlm_generate_client_sealing_key(context)
+	ntlm_generate_server_sealing_key(context)
+	# Initialize RC4 seal state using client sealing key
+	ntlm_init_rc4_seal_states(context)
+
+	# TODO? if WITH_DEBUG_NTLM:
+
+	context["state"] = NTLM_STATE_AUTHENTICATE
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_AuthenticateMessage\(
@@ -358,42 +409,6 @@ def ntlm_read_AuthenticateMessage(context, buffer):
 		if AvFlags:
 			flags = Data_Read_UINT32(AvFlags)
 			flags = AvFlags
-
-
-#		ntcrstreamindex = 0
-#		print("[i] Remaining " + str(ntcrlen - ntcrstreamindex))
-#
-#		ntcrba, throwaway = streamReadBytes(ba, ntcrbufferoffset, ntcrlen)
-#		ntcrresponse, ntcrstreamindex = streamReadBytes(ntcrba, ntcrstreamindex, 16)
-#
-#		if ntcrlen - ntcrstreamindex < 28:
-#			print("[!] Not enough data in the NT Challenge Response byte array")
-#
-#		else: # this is ntlm_read_ntlm_v2_client_challenge in ntlm_compute.c in FreeRDP
-#			ntcrresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
-#			ntcrhiresptype,ntcrstreamindex =  streamReadUint8(ntcrba, ntcrstreamindex)
-#
-#			ntcrreserved1,ntcrstreamindex =  streamReadUint16(ntcrba, ntcrstreamindex)
-#			ntcrreserved2,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
-#
-#			ntcrtimestamp,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
-#			print("[i] Got Clients timestamp " + str(binascii.hexlify(ntcrtimestamp)))
-#
-#			ntcrclientchallenge,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, 8)
-#			print("[i] Got Clients challenge " + str(binascii.hexlify(ntcrclientchallenge)))
-#
-#			ntcrreserved3,ntcrstreamindex =  streamReadUint32(ntcrba, ntcrstreamindex)
-#
-#			#print("[d] Remaining " + str(ntcrlen - ntcrstreamindex))
-#
-#			# AV Pairs
-#
-#			ntcravpairslen = ntcrlen - ntcrstreamindex
-#			ntcravpairsba,ntcrstreamindex =  streamReadBytes(ntcrba, ntcrstreamindex, ntcravpairslen )
-#
-#			avid, aviddata = ntlmAVPairGet(ntcravpairsba, ntcravpairslen, MsvAvFlags)
-#
-#			flags = aviddata
 
 	if flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK:
 		print("[i] Message Integrity Check/Code (MIC) Present at " + str(PayloadBufferOffset))
@@ -774,14 +789,31 @@ def parsefiles(session, dir):
 		print("parsefiles: parseNegotiate failed")
 		return False
 
-	success, serverchallenge, targetname, targetinfo = parseChallenge(session,dir)
+	success, context["ServerChallenge"], targetname, targetinfo = parseChallenge(session,dir)
 	if not success:
 		print("parsefiles: parseChallenge failed")
 
-	success = parseAuthenticate(session, dir, context)
+	print(f"[i] ** Parsing Client Challenge for session {session}")
+	with open(f"{dir}/{session}.ChallengeIn.bin", 'rb') as file:
+		success = ntlm_read_ChallengeMessage(context, file)
 	if not success:
-		print("parsefiles: parseAuthenticate failed")
+		print("parsefiles: ntlm_read_ChallengeMessage failed")
 		return False
+
+	print(f"[i] ** Parsing Authenticate for session {session}")
+	with open(f"{dir}/{session}.AuthenticateIn.bin", 'rb') as file:
+		success = ntlm_read_AuthenticateMessage(context, file.read())
+	if not success:
+		print("parsefiles: ntlm_read_AuthenticateMessage failed")
+		return False
+
+	# TODO: use dictionary
+	context["credentials"] = {}
+	context["credentials"]["identity"] = {
+		"Domain": "domain".encode('utf-16le'),
+		"Password": "password".encode('utf-16le'),
+		"User": "username".encode('utf-16le'),
+	}
 
 	# We do some calculations
 	success = ntlm_server_AuthenticateComplete(context)
