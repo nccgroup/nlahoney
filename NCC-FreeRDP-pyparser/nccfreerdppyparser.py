@@ -21,11 +21,58 @@ from md4 import MD4
 bDebug = True
 bStreamDebug = False
 
+MESSAGE_TYPE_CHALLENGE = 2
 MsvAvFlags = 6
 MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK = 0x00000002
 NTLMSSP_NEGOTIATE_KEY_EXCH = 0x40000000
 NTLMSSP_NEGOTIATE_VERSION = 0x02000000
 SSPI_CREDENTIALS_HASH_LENGTH_OFFSET = 512
+
+
+def Stream_Read(s, n):
+	raw = s.read(n)
+	if len(raw) < n:
+		raise ValueError(f"truncated read: expected {n} bytes, got {len(raw)}")
+	return raw
+
+
+def Stream_Read_UINT8(s):
+	raw = Stream_Read(s, 1)
+	return int.from_bytes(raw, byteorder="little", signed=False)
+
+
+def Stream_Read_UINT16(s):
+	raw = Stream_Read(s, 2)
+	return int.from_bytes(raw, byteorder="little", signed=False)
+
+
+def Stream_Read_UINT32(s):
+	raw = Stream_Read(s, 4)
+	return int.from_bytes(raw, byteorder="little", signed=False)
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^static int ntlm_read_message_header\(
+def ntlm_read_message_header(s, header):
+	header["Signature"] = Stream_Read(s, 8)
+	header["MessageType"] = Stream_Read_UINT32(s)
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^static int ntlm_read_message_fields\(
+def ntlm_read_message_fields(s):
+	fields = {}
+	fields["Len"] = Stream_Read_UINT16(s)	# Len (2 bytes)
+	fields["MaxLen"] = Stream_Read_UINT16(s)	# MaxLen (2 bytes)
+	fields["BufferOffset"] = Stream_Read_UINT32(s)	# BufferOffset (4 bytes)
+	return fields
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^static int ntlm_read_message_fields_buffer\(
+def ntlm_read_message_fields_buffer(s, fields):
+	if fields["Len"] > 0:
+		offset = fields["BufferOffset"] + fields["Len"]
+		s.seek(fields["BufferOffset"])
+		fields["Buffer"] = Stream_Read(s, fields["Len"])
+
 
 def streamGetRemainingBytes(barray, streamindex):
 	return (len(barray) - streamindex)
@@ -89,6 +136,19 @@ def streamReadNTLMMessageField(barray, streamindex):
 #	UINT16 AvLen;
 #};
 
+# enum _NTLM_AV_ID
+MsvAvEOL = 0
+MsvAvNbComputerName = 1
+MsvAvNbDomainName = 2
+MsvAvDnsComputerName = 3
+MsvAvDnsDomainName = 4
+MsvAvDnsTreeName = 5
+MsvAvFlags = 6
+MsvAvTimestamp = 7
+MsvAvSingleHost = 8
+MsvAvTargetName = 9
+MsvChannelBindings = 10
+
 def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 	avpairlistindex= 0
 	data = None
@@ -97,27 +157,27 @@ def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 		avid,avpairlistindex =  streamReadUint16(avpairlist, avpairlistindex)
 		avlen,avpairlistindex =  streamReadUint16(avpairlist, avpairlistindex)
 
-		if avid == 0:
+		if avid == MsvAvEOL:
 			print("[i] Parsing.. AV ID type is MsvAvEOL")
-		elif avid == 1:
+		elif avid == MsvAvNbComputerName:
 			print("[i] Parsing.. AV ID type is NB Computer Name")
-		elif avid == 2:
+		elif avid == MsvAvNbDomainName:
 			print("[i] Parsing.. AV ID type is NB Domain Name")
-		elif avid == 3:
+		elif avid == MsvAvDnsComputerName:
 			print("[i] Parsing.. AV ID type is DNS Computer Name")
-		elif avid == 4:
+		elif avid == MsvAvDnsDomainName:
 			print("[i] Parsing.. AV ID type is DNS Domain Name")
-		elif avid == 5:
+		elif avid == MsvAvDnsTreeName:
 			print("[i] Parsing.. AV ID type is DNS Tree Name")
-		elif avid == 6:
+		elif avid == MsvAvFlags:
 			print("[i] Parsing.. AV ID type is Flags")
-		elif avid == 7:
+		elif avid == MsvAvTimestamp:
 			print("[i] Parsing.. AV ID type is Time Stamp")
-		elif avid == 8:
+		elif avid == MsvAvSingleHost:
 			print("[i] Parsing.. AV ID type is Single Host")
-		elif avid == 9:
+		elif avid == MsvAvTargetName:
 			print("[i] Parsing.. AV ID type is Target Name")
-		elif avid == 10:
+		elif avid == MsvChannelBindings:
 			print("[i] Parsing.. AV ID type is Channel Bindings")
 
 		if avid == whichavid:
@@ -127,12 +187,20 @@ def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 				data,avpairlistindex =  streamReadUint32(avpairlist, avpairlistindex)
 
 			break
-		elif avid == 0: # MsvAvEOL
+		elif avid == MsvAvEOL:
 			break
 		else: # get next
 			avpairlistindex = avpairlistindex + avlen
 
 	return avid,data
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_av_pairs.c:/^NTLM_AV_PAIR\* ntlm_av_pair_get\(
+def ntlm_av_pair_get(pAvPairList, cbAvPairList, AvId):
+	avid, pAvPair = ntlmAVPairGet(pAvPairList, cbAvPairList, AvId)
+	if avid != AvId:
+		return False
+	return pAvPair
 
 #
 def parseNegotiate(session, dir):
@@ -209,7 +277,7 @@ def parseChallenge(session, dir):
 	if ret is False:
 		print("[!] Packet magic is not present ")
 		return False
-	elif ret != 2: # MESSAGE_TYPE_CHALLENGE
+	elif ret != MESSAGE_TYPE_CHALLENGE:
 		print("[!] Incorrect message type " + str(ret))
 		return False
 	else:
@@ -263,24 +331,27 @@ def parseChallenge(session, dir):
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_ChallengeMessage\(
 def ntlm_read_ChallengeMessage(context, s):
 	StartOffset = s.tell()
-	message = ntlm_read_message_header(s)
-	if message["MessageType"] is not MESSAGE_TYPE_CHALLENGE:
-		raise ValueError("ntlm_read_ChallengeMessage: MessageType is not MESSAGE_TYPE_CHALLENGE")
+	message = {}
+	ntlm_read_message_header(s, message)
+	if message["MessageType"] != MESSAGE_TYPE_CHALLENGE:
+		raise ValueError(f"ntlm_read_ChallengeMessage: {message['MessageType']=}")
 	message["TargetName"] = ntlm_read_message_fields(s)	# TargetNameFields (8 bytes)
 	message["NegotiateFlags"] = Stream_Read_UINT32(s)	# NegotiateFlags (4 bytes)
 	context["NegotiateFlags"] = message["NegotiateFlags"]
-	message["ServerChallenge"] = s.read(8)	# ServerChallenge (8 bytes)
-	__ = s.read(8)	# Reserved (8 bytes), should be ignored
+	message["ServerChallenge"] = Stream_Read(s, 8)	# ServerChallenge (8 bytes)
+	__ = Stream_Read(s, 8)	# Reserved (8 bytes), should be ignored
 	message["TargetInfo"] = ntlm_read_message_fields(s)
 	if context["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
 		message["Version"] = ntlm_read_version_info(s)
 
 	PayloadOffset = s.tell()
 
-	if message["TargetName"]:
-		message["TargetInfo"] = ntlm_read_message_fields_buffer(s)
-		context["ChallengeTargetInfo"] = message["TargetInfo"]
-		AvTimestamp = ntlm_av_pair_get(message["TargetInfo"], len(message["TargetInfo"]), MsvAvTimestamp, cbAvTimestamp)
+	if message["TargetName"]["Len"]:
+		ntlm_read_message_fields_buffer(s, message["TargetInfo"])
+		context["ChallengeTargetInfo"] = {}
+		context["ChallengeTargetInfo"]["pvBuffer"] = message["TargetInfo"]["Buffer"]
+		context["ChallengeTargetInfo"]["cbBuffer"] = message["TargetInfo"]["Len"]
+		AvTimestamp = ntlm_av_pair_get(message["TargetInfo"]["Buffer"], message["TargetInfo"]["Len"], MsvAvTimestamp)
 
 		if AvTimestamp:
 			context["ChallengeTimestamp"] = ntlm_av_pair_get_value_pointer(AvTimestamp)
@@ -291,7 +362,7 @@ def ntlm_read_ChallengeMessage(context, s):
 
 	length = (PayloadOffset - StartOffset) + len(message["TargetName"]) + len(message["TargetInfo"])
 	s.seek(StartOffset)
-	context["ChallengeMessage"] = s.read(length)
+	context["ChallengeMessage"] = Stream_Read(s, length)
 
 	#TODO? if WITH_DEBUG_NTLM:
 
@@ -436,14 +507,6 @@ def ntlm_read_AuthenticateMessage(context, buffer):
 		return False
 
 
-# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_av_pairs.c:/^NTLM_AV_PAIR\* ntlm_av_pair_get\(
-def ntlm_av_pair_get(pAvPairList, cbAvPairList, AvId):
-	avid, pAvPair = ntlmAVPairGet(pAvPairList, cbAvPairList, AvId)
-	if avid != AvId:
-		return False
-	return pAvPair
-
-
 # ../FreeRDP-ResearchServer/winpr/include/winpr/endian.h:/^#define Data_Read_UINT32\(
 def Data_Read_UINT32(d):
 	return struct.unpack("<I", struct.pack(">I", d))[0]
@@ -484,24 +547,14 @@ def ntlm_read_ntlm_v2_client_challenge(s, streamindex, challenge):
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_read_version_info\(
-def ntlm_read_version_info(s, streamindex, versioninfo):
-	if streamGetRemainingBytes(s, streamindex) < 8:
-		return False
-	# Product Version
-	versioninfo["ProductMajorVersion"], streamindex = streamReadUint8(s, streamindex)	# ProductMajorVersion (1 byte)
-	versioninfo["ProductMinorVersion"], streamindex = streamReadUint8(s, streamindex)	# ProductMinorVersion (1 byte)
-	versioninfo["ProductProductBuild"], streamindex = streamReadUint16(s,streamindex)	# ProductBuild (2 bytes)
-	versioninfo["Reserved"], streamindex = streamReadBytes(s, streamindex, 3) # Reserved (3 bytes)
-	versioninfo["NTLMRevisionCurrent"], streamindex  = streamReadUint8(s, streamindex)	# NTLMRevisionCurrent (1 byte)
-	print("[i] from Version: " +
-		str(versioninfo["ProductMajorVersion"]) +
-		"." +
-		str(versioninfo["ProductMinorVersion"]) +
-		" build (" +
-		str(versioninfo["ProductProductBuild"]) +
-		") NTLM Revision " +
-		str(versioninfo["NTLMRevisionCurrent"]))
-	return True
+def ntlm_read_version_info(s):
+	""" Read VERSION structure. """
+	versionInfo = {}
+	versionInfo["ProductMajorVersion"] = Stream_Read_UINT8(s)	# ProductMajorVersion (1 byte)
+	versionInfo["ProductMinorVersion"] = Stream_Read_UINT8(s)	# ProductMinorVersion (1 byte)
+	versionInfo["ProductProductBuild"] = Stream_Read_UINT16(s)	# ProductBuild (2 bytes)
+	versionInfo["Reserved"] = Stream_Read(s, 3) # Reserved (3 bytes)
+	versionInfo["NTLMRevisionCurrent"]  = Stream_Read_UINT8(s)	# NTLMRevisionCurrent (1 byte)
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_server_AuthenticateComplete\(
@@ -779,10 +832,38 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	}
 	return ntlm_server_AuthenticateComplete(context)
 
+# enum _NTLM_STATE
+NTLM_STATE_INITIAL = 0
+NTLM_STATE_NEGOTIATE = 1
+NTLM_STATE_CHALLENGE = 2
+NTLM_STATE_AUTHENTICATE = 3
+NTLM_STATE_COMPLETION = 4
+NTLM_STATE_FINAL = 5
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm.c:/^static NTLM_CONTEXT\* ntlm_ContextNew\(
+def ntlm_ContextNew():
+	context = {}
+	context["randID"] = 0
+	context["NTLMv2"] = True
+	context["UseMIC"] = False
+	context["SendVersionInfo"] = True
+	context["SendSingleHostData"] = False
+	context["SendWorkstationName"] = True
+	context["NegotiateKeyExchange"] = True
+	context["UseSamFileDatabase"] = True
+	context["SuppressExtendedProtection"] = False
+	context["NegotiateFlags"] = 0
+	context["LmCompatibilityLevel"] = 3
+	context["state"] = NTLM_STATE_INITIAL
+	context["MachineID"] = b"0xAA" * 32
+	if context["NTLMv2"]:
+		context["UseMIC"] = True
+	return context
+
 
 # Parse the files
 def parsefiles(session, dir):
-	context = {}
+	context = ntlm_ContextNew()
 
 	# We parse the files
 	if parseNegotiate(session,dir) is False:
