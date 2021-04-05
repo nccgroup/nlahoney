@@ -184,7 +184,11 @@ def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 			print("[i] Matched AV ID type - it is " + str(avlen) + " bytes long")
 
 			if avid == MsvAvFlags:
-				data,avpairlistindex =  streamReadUint32(avpairlist, avpairlistindex)
+				data, avpairlistindex =  streamReadUint32(avpairlist, avpairlistindex)
+			elif avid == MsvAvTimestamp:
+				data, avpairlistindex = streamReadBytes(avpairlist, avpairlistindex, avlen)
+			else:
+				raise ValueError(f"ntlmAVPairGet: unhandled {avid=}")
 
 			break
 		elif avid == MsvAvEOL:
@@ -351,12 +355,9 @@ def ntlm_read_ChallengeMessage(context, s):
 		context["ChallengeTargetInfo"] = {}
 		context["ChallengeTargetInfo"]["pvBuffer"] = message["TargetInfo"]["Buffer"]
 		context["ChallengeTargetInfo"]["cbBuffer"] = message["TargetInfo"]["Len"]
-		AvTimestamp = ntlm_av_pair_get(message["TargetInfo"]["Buffer"], message["TargetInfo"]["Len"], MsvAvTimestamp)
+		context["ChallengeTimestamp"] = ntlm_av_pair_get(message["TargetInfo"]["Buffer"], message["TargetInfo"]["Len"], MsvAvTimestamp)
 
-		if AvTimestamp:
-			context["ChallengeTimestamp"] = ntlm_av_pair_get_value_pointer(AvTimestamp)
-			if not context["ChallengeTimestamp"]:
-				raise ValueError("ntlm_read_ChallengeMessage: ntlm_av_pair_get_value_pointer failed")
+		if context["ChallengeTimestamp"]:
 			if context["NTLMv2"]:
 				context["UseMIC"] = True
 
@@ -368,24 +369,29 @@ def ntlm_read_ChallengeMessage(context, s):
 
 	# AV_PAIRs
 	if context["NTLMv2"]:
-		ntlm_construct_authenticate_target_info(context)
-		context["ChallengeTargetInfo"] = context["AuthenticateTargetInfo"]
+		# TODO?
+		# ntlm_construct_authenticate_target_info(context)
+		# context["ChallengeTargetInfo"] = context["AuthenticateTargetInfo"]
+		context["ChallengeTargetInfo"] = {}
 
-	ntlm_generate_timestamp(context)	# Timestamp
+	#ntlm_generate_timestamp(context)	# Timestamp
+	context["Timestamp"] = context["ChallengeTimestamp"]
+
 	ntlm_compute_lm_v2_response(context)	# LmChallengeResponse
 	ntlm_compute_ntlm_v2_response(context)	# NtChallengeResponse
-	ntlm_generate_key_exchange_key(context)	# KeyExchangeKey
-	ntlm_generate_random_session_key(context)	# RandomSessionKey
-	ntlm_generate_exported_session_key(context)	# ExportedSessionKey
-	ntlm_encrypt_random_session_key(context)	# EncryptedRandomSessionKey
-	# Generate signing keys
-	ntlm_generate_client_signing_key(context)
-	ntlm_generate_server_signing_key(context)
-	# Generate sealing keys
-	ntlm_generate_client_sealing_key(context)
-	ntlm_generate_server_sealing_key(context)
-	# Initialize RC4 seal state using client sealing key
-	ntlm_init_rc4_seal_states(context)
+	# TODO?
+#	ntlm_generate_key_exchange_key(context)	# KeyExchangeKey
+#	ntlm_generate_random_session_key(context)	# RandomSessionKey
+#	ntlm_generate_exported_session_key(context)	# ExportedSessionKey
+#	ntlm_encrypt_random_session_key(context)	# EncryptedRandomSessionKey
+#	# Generate signing keys
+#	ntlm_generate_client_signing_key(context)
+#	ntlm_generate_server_signing_key(context)
+#	# Generate sealing keys
+#	ntlm_generate_client_sealing_key(context)
+#	ntlm_generate_server_sealing_key(context)
+#	# Initialize RC4 seal state using client sealing key
+#	ntlm_init_rc4_seal_states(context)
 
 	# TODO? if WITH_DEBUG_NTLM:
 
