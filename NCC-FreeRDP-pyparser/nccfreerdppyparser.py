@@ -138,11 +138,11 @@ def streamReadUint8(barray, streamindex):
 	return ret, streamindex
 
 
-def checkHeaderandGetType(barray, streamindex):
-	assert barray[0:7] == b"NTLMSSP"
-	streamindex += 8
-	type,streamindex=streamReadUint32(barray, streamindex)
-	return type,streamindex
+def checkHeaderandGetType(s):
+	header = Stream_Read(s, 8)
+	assert header[0:7] == b"NTLMSSP"
+	type = Stream_Read_UINT32(s)
+	return type
 
 
 def streamReadNTLMMessageField(barray, streamindex):
@@ -220,8 +220,10 @@ def parseNegotiate(session, dir):
 	hFile = open(strFile, 'rb')
 	ba = bytearray(hFile.read())
 
-	ret,streamindex = checkHeaderandGetType(ba,streamindex)
-	assert ret == MESSAGE_TYPE_NEGOTIATE
+	with io.BytesIO(ba) as s:
+		ret = checkHeaderandGetType(s)
+		assert ret == MESSAGE_TYPE_NEGOTIATE
+		streamindex += 8+4
 
 	# Negotiate Flags
 	NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
@@ -260,8 +262,10 @@ def parseChallenge(session, dir):
 	hFile = open(strFile, 'rb')
 	ba = bytearray(hFile.read())
 
-	ret,streamindex = checkHeaderandGetType(ba,streamindex)
-	assert ret == MESSAGE_TYPE_CHALLENGE
+	with io.BytesIO(ba) as s:
+		ret = checkHeaderandGetType(s)
+		assert ret == MESSAGE_TYPE_CHALLENGE
+		streamindex += 8+4
 
 	# Target Name
 	streamindex, tnlen, tnmaxlen, tnbufferoffset = streamReadNTLMMessageField(ba, streamindex)
@@ -377,8 +381,10 @@ def ntlm_read_AuthenticateMessage(context, buffer):
 	context["AUTHENTICATE_MESSAGE"] = {}
 	message = context["AUTHENTICATE_MESSAGE"]
 
-	ret,streamindex = checkHeaderandGetType(ba,streamindex)
-	assert ret == MESSAGE_TYPE_AUTHENTICATE
+	with io.BytesIO(ba) as s:
+		ret = checkHeaderandGetType(s)
+		assert ret == MESSAGE_TYPE_AUTHENTICATE
+		streamindex += 8+4
 
 	# LmChallengeResponse
 	streamindex, lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
