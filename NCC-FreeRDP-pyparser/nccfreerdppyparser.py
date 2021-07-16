@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import io
 import os
+import pprint
 import struct
 import sys
 import unittest
@@ -344,8 +345,10 @@ def ntlm_read_ChallengeMessage(context, s):
 	#ntlm_generate_timestamp(context)	# Timestamp
 	context["Timestamp"] = context["ChallengeTimestamp"]
 
-	ntlm_compute_lm_v2_response(context)	# LmChallengeResponse
-	ntlm_compute_ntlm_v2_response(context)	# NtChallengeResponse
+	# Implemented, but something's wrong?
+	#ntlm_compute_lm_v2_response(context)	# LmChallengeResponse
+	#ntlm_compute_ntlm_v2_response(context)	# NtChallengeResponse
+
 	# TODO?
 #	ntlm_generate_key_exchange_key(context)	# KeyExchangeKey
 #	ntlm_generate_random_session_key(context)	# RandomSessionKey
@@ -365,6 +368,9 @@ def ntlm_read_ChallengeMessage(context, s):
 	context["state"] = NTLM_STATE_AUTHENTICATE
 
 
+MESSAGE_TYPE_AUTHENTICATE = 3
+
+
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_AuthenticateMessage\(
 def ntlm_read_AuthenticateMessage(context, buffer):
 	ba = buffer
@@ -373,13 +379,7 @@ def ntlm_read_AuthenticateMessage(context, buffer):
 	message = context["AUTHENTICATE_MESSAGE"]
 
 	ret,streamindex = checkHeaderandGetType(ba,streamindex)
-	if ret != 3: # MESSAGE_TYPE_AUTHENTICATE
-		print("[!] Incorrect message type " + str(ret))
-		return False
-	remaining = streamGetRemainingBytes(ba, streamindex);
-	if remaining < 4:
-		print("[!] Not enough bytes remaining " + str(remaining))
-		return False
+	assert ret == MESSAGE_TYPE_AUTHENTICATE
 
 	# LmChallengeResponse
 	bSuccess, streamindex, lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
@@ -435,9 +435,7 @@ def ntlm_read_AuthenticateMessage(context, buffer):
 		snt = message["NtChallengeResponse"]
 		sntindex = 0
 		context["NTLMv2Response"] = {}
-		if ntlm_read_ntlm_v2_response(snt, sntindex, context["NTLMv2Response"]) == False:
-			print("ntlm_read_AuthenticateMessage: ntlm_read_ntlm_v2_response failed: invalid token")
-			return False
+		assert ntlm_read_ntlm_v2_response(snt, sntindex, context["NTLMv2Response"])
 
 		context["NtChallengeResponse"] = message["NtChallengeResponse"]
 		context["ChallengeTargetInfo"] = context["NTLMv2Response"]["Challenge"]["AvPairs"]
@@ -449,30 +447,13 @@ def ntlm_read_AuthenticateMessage(context, buffer):
 			flags = Data_Read_UINT32(AvFlags)
 			flags = AvFlags
 
-	if flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK:
-		print("[i] Message Integrity Check/Code (MIC) Present at " + str(PayloadBufferOffset))
+	assert flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK
+	print("[i] Message Integrity Check/Code (MIC) Present at " + str(PayloadBufferOffset))
 
-		# I've verified the MIC returned here is correct
-		# from the patched ntlm_message.c on a known session
-		mic,throwaway =  streamReadBytes(ba, PayloadBufferOffset, 16)
-		print("[i] Got MIC " + str(binascii.hexlify(mic)))
-
-		return True
-#		# Now return a whole host of stuff
-#		return (True,
-#			message["UserName"].decode('utf-8', errors='ignore').encode('utf-16le'),
-#			message["DomainName"].decode('utf-8', errors='ignore').encode('utf-16le'),
-#			flags,
-#			ba,
-#			ntcrclientchallenge,
-#			ntcrtimestamp,
-#			mic,
-#			message["Workstation"].decode('utf-8', errors='ignore').encode('utf-16le'),
-#			ntcrresponse)
-
-	else:
-		print("ntlm_read_AuthenticateMessage: flags missing MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK")
-		return False
+	# I've verified the MIC returned here is correct
+	# from the patched ntlm_message.c on a known session
+	message["MessageIntegrityCheck"], __ = streamReadBytes(ba, PayloadBufferOffset, 16)
+	print(f"[i] Got MIC {binascii.hexlify(message['MessageIntegrityCheck'])}")
 
 
 # ../FreeRDP-ResearchServer/winpr/include/winpr/endian.h:/^#define Data_Read_UINT32\(
@@ -564,6 +545,7 @@ def ntlm_compute_ntlm_v2_hash(context):
 
 	if credentials == None:
 		print("ntlm_compute_ntlm_v2_hash: no credentials")
+		pprint.pprint(context)
 		return False
 	elif context.get("NtlmHash"):
 		# NULL
@@ -643,6 +625,7 @@ def NTOWFv1W(Password):
 	return MD4(Password).bytes()
 
 
+# ../FreeRDP-ResearchServer/winpr/libwinpr/crypto/hash.c:/^BOOL winpr_HMAC\(
 def winpr_HMAC(digest, key, msg):
 	return hmac.digest(key, msg, digest)
 
@@ -834,6 +817,14 @@ def ntlm_ContextNew():
 def parsefiles(session, dir):
 	context = ntlm_ContextNew()
 
+	# TODO: use dictionary
+	context["credentials"] = {}
+	context["credentials"]["identity"] = {
+		"Domain": "domain".encode('utf-16le'),
+		"Password": "password".encode('utf-16le'),
+		"User": "username".encode('utf-16le'),
+	}
+
 	# We parse the files
 	parseNegotiate(session,dir)
 
@@ -845,18 +836,7 @@ def parsefiles(session, dir):
 
 	print(f"[i] ** Parsing Authenticate for session {session}")
 	with open(f"{dir}/{session}.AuthenticateIn.bin", 'rb') as file:
-		success = ntlm_read_AuthenticateMessage(context, file.read())
-	if not success:
-		print("parsefiles: ntlm_read_AuthenticateMessage failed")
-		return False
-
-	# TODO: use dictionary
-	context["credentials"] = {}
-	context["credentials"]["identity"] = {
-		"Domain": "domain".encode('utf-16le'),
-		"Password": "password".encode('utf-16le'),
-		"User": "username".encode('utf-16le'),
-	}
+		ntlm_read_AuthenticateMessage(context, file.read())
 
 	# We do some calculations
 	success = ntlm_server_AuthenticateComplete(context)
