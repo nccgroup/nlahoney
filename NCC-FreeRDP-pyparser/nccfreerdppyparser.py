@@ -910,52 +910,8 @@ def parsefiles(session, dir):
 		print("[!] Attacker from " + context["AUTHENTICATE_MESSAGE"]["Workstation"].decode() + " using " + context["AUTHENTICATE_MESSAGE"]["DomainName"].decode() + "\\" + context["AUTHENTICATE_MESSAGE"]["UserName"].decode() + " but we failed to crack the password")
 
 
-# Check the files we need exist
-def checkfiles(session, dir):
-	strFile = dir + "/" + str(session) + ".NegotiateIn.bin"
-
-	if os.path.exists(strFile) is not True:
-		print("[!] Could not file inbound Negotiate packet file " + strFile)
-		return False
-	else:
-		print("[i] Found Negotiate packet file")
-
-	strFile = dir + "/" + str(session) + ".ChallengeOut.bin"
-
-	if os.path.exists(strFile) is not True:
-		print("[!] Could not file outbound Challenge packet file " + strFile )
-		return False
-	else:
-		print("[i] Found Challenge packet file")
-
-	strFile = dir + "/" + str(session) + ".AuthenticateIn.bin"
-
-	if os.path.exists(strFile) is not True:
-		print("[!] Could not file inbound Authenticate file" + strFile)
-		return False
-	else:
-		print("[i] Found Authenticate packet file")
-
-	return True
-
-# Process
-def process(session, dir):
-	print("[i] Processing session " + str(session))
-
-	if checkfiles(session,dir) is not True:
-		print("[!] Could not find required session files")
-		return
-	else:
-		parsefiles(session,dir)
-
-
-# Entry point to script
-if sys.version_info[0] < 3:
-	print("[!] Must be Python 3")
-	sys.exit(1)
-
 parser = argparse.ArgumentParser()
 parser.add_argument("-d","--dir", help="directory containing dumps", default="/tmp")
 parser.add_argument("session", help="parse this session", type=int)
 args = parser.parse_args()
-process(args.session,args.dir)
+parsefiles(args.session, args.dir)
