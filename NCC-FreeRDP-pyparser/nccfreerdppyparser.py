@@ -10,6 +10,7 @@ import binascii
 import glob
 import hashlib
 import hmac
+import io
 import os
 import struct
 import sys
@@ -18,7 +19,6 @@ import unittest
 from md4 import MD4
 
 
-bDebug = True
 bStreamDebug = False
 
 MESSAGE_TYPE_CHALLENGE = 2
@@ -31,8 +31,7 @@ SSPI_CREDENTIALS_HASH_LENGTH_OFFSET = 512
 
 def Stream_Read(s, n):
 	raw = s.read(n)
-	if len(raw) < n:
-		raise ValueError(f"truncated read: expected {n} bytes, got {len(raw)}")
+	assert len(raw) == n
 	return raw
 
 
@@ -250,64 +249,55 @@ def parseNegotiate(session, dir):
 
 #
 def parseChallenge(session, dir):
-	print("[i] ** Parsing Challenge for session " + str(session))
+	strFile = dir + "/" + str(session) + ".ChallengeOut.bin"
+	print(f"[i] ** Parsing {strFile}")
 
 	streamindex = 0
 
-	strFile = dir + "/" + str(session) + ".ChallengeOut.bin"
 	hFile = open(strFile, 'rb')
 	ba = bytearray(hFile.read())
 
 	ret,streamindex = checkHeaderandGetType(ba,streamindex)
-	if ret != MESSAGE_TYPE_CHALLENGE:
-		print("[!] Incorrect message type " + str(ret))
-		return False
-	else:
-		remaining = streamGetRemainingBytes(ba,streamindex);
-		if remaining < 4:
-			print("[!] Not enough bytes remaining " + str(remaining.stream))
-			return False
+	assert ret == MESSAGE_TYPE_CHALLENGE
 
-		else:
+	# Target Name
+	bSuccess, streamindex, tnlen, tnmaxlen, tnbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print(f"[i] Target Name Length: {tnlen} at {tnbufferoffset}")
 
-			# Target Name
-			bSuccess, streamindex, tnlen, tnmaxlen, tnbufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Target Name Length: " + str(tnlen) + " at " +str(tnbufferoffset))
+	# Negotiate Flags
+	NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
+	print("[i] Got Negotiate flags")
 
-			# Negotiate Flags
-			NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
-			print("[i] Got Negotiate flags")
+	challenge,streamindex = streamReadBytes(ba,streamindex,8)
+	print("[i] Got Servers challenge {binascii.hexlify(challenge))}")
 
-			challenge,streamindex = streamReadBytes(ba,streamindex,8)
-			print("[i] Got Servers challenge " + str(binascii.hexlify(challenge)))
+	reserved,streamindex = streamReadBytes(ba,streamindex,8)
+	print("[i] Skipped reserved ")
 
-			reserved,streamindex = streamReadBytes(ba,streamindex,8)
-			print("[i] Skipped reserved ")
+	# Target Info
+	bSuccess, streamindex, tilen, timaxlen, tibufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	print("[i] Target Info Length: " + str(tilen) + " at " +str(tibufferoffset))
 
-			# Target Info
-			bSuccess, streamindex, tilen, timaxlen, tibufferoffset = streamReadNTLMMessageField(ba, streamindex)
-			print("[i] Target Info Length: " + str(tilen) + " at " +str(tibufferoffset))
+	if NegotiateFlags & NTLMSSP_NEGOTIATE_VERSION:
+		# Product Version
+		negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
+		negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
+		negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
+		streamindex = streamindex + 1 # Skips over a reserved
+		negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
+		print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 
-			if NegotiateFlags & NTLMSSP_NEGOTIATE_VERSION:
-				# Product Version
-				negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
-				negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
-				negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
-				streamindex = streamindex + 1 # Skips over a reserved
-				negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
-				print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
+	# Target Name
+	if NegotiateFlags & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
+		targetname,throwaway = streamReadBytes(ba,tnbufferoffset,tnlen)
+		print("[i] Got Target Name " + str(targetname.decode('utf8', errors='ignore')))
 
-			# Target Name
-			if NegotiateFlags & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
-				targetname,throwaway = streamReadBytes(ba,tnbufferoffset,tnlen)
-				print("[i] Got Target Name " + str(targetname.decode('utf8', errors='ignore')))
+	# Target Info - maybe parse this?
+	if NegotiateFlags & 0x00800000 :	# NTLMSSP_NEGOTIATE_TARGET_INFO
+		targetinfo,throwaway= streamReadBytes(ba,tibufferoffset,tilen)
+		print("[i] Got Target Info " + str(binascii.hexlify(targetinfo)))
 
-			# Target Info - maybe parse this?
-			if NegotiateFlags & 0x00800000 :	# NTLMSSP_NEGOTIATE_TARGET_INFO
-				targetinfo,throwaway= streamReadBytes(ba,tibufferoffset,tilen)
-				print("[i] Got Target Info " + str(binascii.hexlify(targetinfo)))
-
-			return True, challenge, targetname, targetinfo
+	return challenge, targetname, targetinfo
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_ChallengeMessage\(
@@ -315,8 +305,7 @@ def ntlm_read_ChallengeMessage(context, s):
 	StartOffset = s.tell()
 	message = {}
 	ntlm_read_message_header(s, message)
-	if message["MessageType"] != MESSAGE_TYPE_CHALLENGE:
-		raise ValueError(f"ntlm_read_ChallengeMessage: {message['MessageType']=}")
+	assert message["MessageType"] == MESSAGE_TYPE_CHALLENGE
 	message["TargetName"] = ntlm_read_message_fields(s)	# TargetNameFields (8 bytes)
 	message["NegotiateFlags"] = Stream_Read_UINT32(s)	# NegotiateFlags (4 bytes)
 	context["NegotiateFlags"] = message["NegotiateFlags"]
@@ -423,10 +412,8 @@ def ntlm_read_AuthenticateMessage(context, buffer):
 	print("[i] Got Negotiate flags")
 
 	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
-		message["Version"] = {}
-		if ntlm_read_version_info(ba, streamindex, message["Version"]) == False:
-			print("ntlm_read_AuthenticateMessage: ntlm_read_version_info failed")
-			return False
+		with io.BytesIO(ba) as s:
+			message["Version"] = ntlm_read_version_info(s)
 		streamindex += 8	# Version (8 bytes)
 
 	# Save this for later
@@ -536,6 +523,7 @@ def ntlm_read_version_info(s):
 	versionInfo["ProductProductBuild"] = Stream_Read_UINT16(s)	# ProductBuild (2 bytes)
 	versionInfo["Reserved"] = Stream_Read(s, 3) # Reserved (3 bytes)
 	versionInfo["NTLMRevisionCurrent"]  = Stream_Read_UINT8(s)	# NTLMRevisionCurrent (1 byte)
+	return versionInfo
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_server_AuthenticateComplete\(
@@ -849,16 +837,11 @@ def parsefiles(session, dir):
 	# We parse the files
 	parseNegotiate(session,dir)
 
-	success, context["ServerChallenge"], targetname, targetinfo = parseChallenge(session,dir)
-	if not success:
-		print("parsefiles: parseChallenge failed")
+	context["ServerChallenge"], targetname, targetinfo = parseChallenge(session,dir)
 
 	print(f"[i] ** Parsing Client Challenge for session {session}")
 	with open(f"{dir}/{session}.ChallengeIn.bin", 'rb') as file:
-		success = ntlm_read_ChallengeMessage(context, file)
-	if not success:
-		print("parsefiles: ntlm_read_ChallengeMessage failed")
-		return False
+		ntlm_read_ChallengeMessage(context, file)
 
 	print(f"[i] ** Parsing Authenticate for session {session}")
 	with open(f"{dir}/{session}.AuthenticateIn.bin", 'rb') as file:
