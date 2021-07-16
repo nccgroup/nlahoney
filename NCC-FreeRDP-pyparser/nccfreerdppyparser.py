@@ -22,12 +22,44 @@ from md4 import MD4
 
 bStreamDebug = False
 
+MESSAGE_TYPE_NEGOTIATE = 1
 MESSAGE_TYPE_CHALLENGE = 2
-MsvAvFlags = 6
+MESSAGE_TYPE_AUTHENTICATE = 3
 MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK = 0x00000002
-NTLMSSP_NEGOTIATE_KEY_EXCH = 0x40000000
+NTLMSSP_NEGOTIATE_UNICODE = 0x00000001
+NTLMSSP_NEGOTIATE_NTLM = 0x00000200
 NTLMSSP_NEGOTIATE_VERSION = 0x02000000
+NTLMSSP_NEGOTIATE_KEY_EXCH = 0x40000000
+NTLMSSP_REQUEST_TARGET = 0x00000004
 SSPI_CREDENTIALS_HASH_LENGTH_OFFSET = 512
+
+# AV Pair
+# struct _NTLM_AV_PAIR
+#{
+#	UINT16 AvId;
+#	UINT16 AvLen;
+#};
+
+# enum _NTLM_AV_ID
+MsvAvEOL = 0
+MsvAvNbComputerName = 1
+MsvAvNbDomainName = 2
+MsvAvDnsComputerName = 3
+MsvAvDnsDomainName = 4
+MsvAvDnsTreeName = 5
+MsvAvFlags = 6
+MsvAvTimestamp = 7
+MsvAvSingleHost = 8
+MsvAvTargetName = 9
+MsvChannelBindings = 10
+
+# enum _NTLM_STATE
+NTLM_STATE_INITIAL = 0
+NTLM_STATE_NEGOTIATE = 1
+NTLM_STATE_CHALLENGE = 2
+NTLM_STATE_AUTHENTICATE = 3
+NTLM_STATE_COMPLETION = 4
+NTLM_STATE_FINAL = 5
 
 
 def Stream_Read(s, n):
@@ -123,25 +155,6 @@ def streamReadNTLMMessageField(barray, streamindex):
 
 	return streamindex, len, maxlen, bufferoffset
 
-# AV Pair
-# struct _NTLM_AV_PAIR
-#{
-#	UINT16 AvId;
-#	UINT16 AvLen;
-#};
-
-# enum _NTLM_AV_ID
-MsvAvEOL = 0
-MsvAvNbComputerName = 1
-MsvAvNbDomainName = 2
-MsvAvDnsComputerName = 3
-MsvAvDnsDomainName = 4
-MsvAvDnsTreeName = 5
-MsvAvFlags = 6
-MsvAvTimestamp = 7
-MsvAvSingleHost = 8
-MsvAvTargetName = 9
-MsvChannelBindings = 10
 
 def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 	avpairlistindex= 0
@@ -175,7 +188,7 @@ def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 			print("[i] Parsing.. AV ID type is Channel Bindings")
 
 		if avid == whichavid:
-			print("[i] Matched AV ID type - it is " + str(avlen) + " bytes long")
+			print(f"[i] Matched AV ID type - it is {avlen} bytes long")
 
 			if avid == MsvAvFlags:
 				data, avpairlistindex =  streamReadUint32(avpairlist, avpairlistindex)
@@ -190,20 +203,15 @@ def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 		else: # get next
 			avpairlistindex = avpairlistindex + avlen
 
-	return avid,data
+	return avid, data
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_av_pairs.c:/^NTLM_AV_PAIR\* ntlm_av_pair_get\(
 def ntlm_av_pair_get(pAvPairList, cbAvPairList, AvId):
 	avid, pAvPair = ntlmAVPairGet(pAvPairList, cbAvPairList, AvId)
-	if avid != AvId:
-		return False
+	assert avid == AvId
 	return pAvPair
 
-MESSAGE_TYPE_NEGOTIATE = 1
-NTLMSSP_REQUEST_TARGET = 0x00000004
-NTLMSSP_NEGOTIATE_NTLM = 0x00000200
-NTLMSSP_NEGOTIATE_UNICODE = 0x00000001
 
 #
 def parseNegotiate(session, dir):
@@ -363,9 +371,6 @@ def ntlm_read_ChallengeMessage(context, s):
 	# TODO? if WITH_DEBUG_NTLM:
 
 	context["state"] = NTLM_STATE_AUTHENTICATE
-
-
-MESSAGE_TYPE_AUTHENTICATE = 3
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_AuthenticateMessage\(
@@ -781,13 +786,6 @@ def recalcandCompareMIC(username, domain, password, avflags, binaryarray, server
 	}
 	return ntlm_server_AuthenticateComplete(context)
 
-# enum _NTLM_STATE
-NTLM_STATE_INITIAL = 0
-NTLM_STATE_NEGOTIATE = 1
-NTLM_STATE_CHALLENGE = 2
-NTLM_STATE_AUTHENTICATE = 3
-NTLM_STATE_COMPLETION = 4
-NTLM_STATE_FINAL = 5
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm.c:/^static NTLM_CONTEXT\* ntlm_ContextNew\(
 def ntlm_ContextNew():
@@ -814,6 +812,7 @@ def ntlm_ContextNew():
 def parsefiles(session, dir):
 	context = ntlm_ContextNew()
 
+	# Add static credentials for use with calculating hash
 	# TODO: use dictionary
 	context["credentials"] = {}
 	context["credentials"]["identity"] = {
@@ -843,8 +842,9 @@ def parsefiles(session, dir):
 		print("[!] Attacker from " + context["AUTHENTICATE_MESSAGE"]["Workstation"].decode() + " using " + context["AUTHENTICATE_MESSAGE"]["DomainName"].decode() + "\\" + context["AUTHENTICATE_MESSAGE"]["UserName"].decode() + " but we failed to crack the password")
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-d","--dir", help="directory containing dumps", default="/tmp")
-parser.add_argument("session", help="parse this session", type=int)
-args = parser.parse_args()
-parsefiles(args.session, args.dir)
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser()
+	parser.add_argument("-d","--dir", help="directory containing dumps", default="dump")
+	parser.add_argument("session", help="parse this session", type=int)
+	args = parser.parse_args()
+	parsefiles(args.session, args.dir)
