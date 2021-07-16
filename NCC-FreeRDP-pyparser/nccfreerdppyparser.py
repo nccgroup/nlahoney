@@ -214,44 +214,34 @@ def parseNegotiate(session, dir):
 	strFile = dir +"/" + str(session) + ".NegotiateIn.bin"
 	print(f"[i] ** Parsing {strFile}")
 
-	streamindex = 0
-
 	hFile = open(strFile, 'rb')
-	ba = bytearray(hFile.read())
 
-	with io.BytesIO(ba[streamindex:]) as s:
-		ret = checkHeaderandGetType(s)
-		assert ret == MESSAGE_TYPE_NEGOTIATE
-		streamindex += 8+4
+	ret = checkHeaderandGetType(hFile)
+	assert ret == MESSAGE_TYPE_NEGOTIATE
 
 	# Negotiate Flags
-	NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
+	NegotiateFlags = Stream_Read_UINT32(hFile)
 	assert NegotiateFlags & NTLMSSP_REQUEST_TARGET
 	assert NegotiateFlags & NTLMSSP_NEGOTIATE_NTLM
 	assert NegotiateFlags & NTLMSSP_NEGOTIATE_UNICODE
-
 	print("[i] Got Negotiate flags")
 
 	# Domain
-	with io.BytesIO(ba[streamindex:]) as s:
-		len, maxlen, bufferoffset = streamReadNTLMMessageField(s)
-		streamindex += 8
-		print(f"[i] Domain Length: {len} at {bufferoffset}")
+	len, maxlen, bufferoffset = streamReadNTLMMessageField(hFile)
+	print(f"[i] Domain Length: {len} at {bufferoffset}")
 
 	# Workstation
-	with io.BytesIO(ba[streamindex:]) as s:
-		len, maxlen, bufferoffset = streamReadNTLMMessageField(s)
-		streamindex += 8
-		print(f"[i] Workstation Length: {len} at {bufferoffset}")
+	len, maxlen, bufferoffset = streamReadNTLMMessageField(hFile)
+	print(f"[i] Workstation Length: {len} at {bufferoffset}")
 
 	assert NegotiateFlags & NTLMSSP_NEGOTIATE_VERSION
 
 	# Product Version
-	negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
-	negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
-	negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
-	streamindex = streamindex + 1 # Skips over a reserved
-	negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
+	negotiateProductMajorVersion = Stream_Read_UINT8(hFile)
+	negotiateProductMinorVersion = Stream_Read_UINT8(hFile)
+	negotiateProductProductBuild = Stream_Read_UINT16(hFile)
+	reserved = Stream_Read_UINT8(hFile) # Skips over a reserved
+	negotiateNTLMRevisionCurrent  = Stream_Read_UINT8(hFile)
 	print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 
 
