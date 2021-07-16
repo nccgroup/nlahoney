@@ -117,14 +117,11 @@ def checkHeaderandGetType(barray, streamindex):
 
 
 def streamReadNTLMMessageField(barray, streamindex):
-	if streamGetRemainingBytes(barray,streamindex) < 8:
-		return False
-
 	len, streamindex = streamReadUint16(barray, streamindex)
 	maxlen, streamindex = streamReadUint16(barray, streamindex)
 	bufferoffset, streamindex = streamReadUint32(barray, streamindex)
 
-	return True, streamindex, len, maxlen, bufferoffset
+	return streamindex, len, maxlen, bufferoffset
 
 # AV Pair
 # struct _NTLM_AV_PAIR
@@ -230,11 +227,11 @@ def parseNegotiate(session, dir):
 	print("[i] Got Negotiate flags")
 
 	# Domain
-	bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
 	print("[i] Domain Length: " + str(len) + " at " +str(bufferoffset))
 
 	# Workstation
-	bSuccess, streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	streamindex, len, maxlen, bufferoffset = streamReadNTLMMessageField(ba, streamindex)
 	print("[i] Workstation Length: " + str(len) + " at " +str(bufferoffset))
 
 	assert NegotiateFlags & NTLMSSP_NEGOTIATE_VERSION
@@ -262,7 +259,7 @@ def parseChallenge(session, dir):
 	assert ret == MESSAGE_TYPE_CHALLENGE
 
 	# Target Name
-	bSuccess, streamindex, tnlen, tnmaxlen, tnbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	streamindex, tnlen, tnmaxlen, tnbufferoffset = streamReadNTLMMessageField(ba, streamindex)
 	print(f"[i] Target Name Length: {tnlen} at {tnbufferoffset}")
 
 	# Negotiate Flags
@@ -276,7 +273,7 @@ def parseChallenge(session, dir):
 	print("[i] Skipped reserved ")
 
 	# Target Info
-	bSuccess, streamindex, tilen, timaxlen, tibufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	streamindex, tilen, timaxlen, tibufferoffset = streamReadNTLMMessageField(ba, streamindex)
 	print("[i] Target Info Length: " + str(tilen) + " at " +str(tibufferoffset))
 
 	if NegotiateFlags & NTLMSSP_NEGOTIATE_VERSION:
@@ -382,26 +379,26 @@ def ntlm_read_AuthenticateMessage(context, buffer):
 	assert ret == MESSAGE_TYPE_AUTHENTICATE
 
 	# LmChallengeResponse
-	bSuccess, streamindex, lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	streamindex, lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
 
 	# NtChallengeResponse
 	#  Note: client challenge is in here and the message integrity code
-	bSuccess, streamindex, ntcrlen, ntcrmaxlen, ntcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	streamindex, ntcrlen, ntcrmaxlen, ntcrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
 
 	# Domain Name
-	bSuccess, streamindex, domlen, dommaxlen, dombufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	streamindex, domlen, dommaxlen, dombufferoffset = streamReadNTLMMessageField(ba, streamindex)
 	print("[i] Domain Name Length: " + str(domlen) + " at " +str(dombufferoffset))
 
 	# User Name
-	bSuccess, streamindex, usrlen, usrmaxlen, usrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	streamindex, usrlen, usrmaxlen, usrbufferoffset = streamReadNTLMMessageField(ba, streamindex)
 	print("[i] User Name Length: " + str(usrlen) + " at " +str(usrbufferoffset))
 
 	# Workstation
-	bSuccess, streamindex, wslen, wsmaxlen, wsbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	streamindex, wslen, wsmaxlen, wsbufferoffset = streamReadNTLMMessageField(ba, streamindex)
 	print("[i] Workstation Length: " + str(wslen) + " at " +str(wsbufferoffset))
 
 	# Encryted Random Session Key
-	bSuccess, streamindex, ersklen, erskmaxlen, erskbufferoffset = streamReadNTLMMessageField(ba, streamindex)
+	streamindex, ersklen, erskmaxlen, erskbufferoffset = streamReadNTLMMessageField(ba, streamindex)
 	print("[i] Encrypted Random Session Key Length: " + str(ersklen) + " at " +str(erskbufferoffset))
 	message["EncryptedRandomSessionKey"], __ = streamReadBytes(ba,erskbufferoffset,ersklen)
 	print("[i] Got Encrypted Random Session Key")
