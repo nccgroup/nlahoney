@@ -106,9 +106,6 @@ def ntlm_read_message_fields_buffer(s, fields):
 		fields["Buffer"] = Stream_Read(s, fields["Len"])
 
 
-def streamGetRemainingBytes(barray, streamindex):
-	return (len(barray) - streamindex)
-
 def streamReadBytes(barray, streamindex, number):
 	if bStreamDebug is True: print("[d] streamindex " + str(streamindex))
 	raw = barray[streamindex:streamindex+number]
@@ -465,10 +462,6 @@ def Data_Read_UINT32(d):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_read_ntlm_v2_response\(
 def ntlm_read_ntlm_v2_response(s, streamindex, response):
-	remaining = streamGetRemainingBytes(s, streamindex)
-	if remaining < 16:
-		print(f"ntlm_read_ntlm_v2_response: not enough bytes remaining in stream: {remaining}")
-		return False
 	response["Response"], streamindex = streamReadBytes(s, streamindex, 16)
 	response["Challenge"] = {}
 	return ntlm_read_ntlm_v2_client_challenge(s, streamindex, response["Challenge"])
@@ -476,10 +469,6 @@ def ntlm_read_ntlm_v2_response(s, streamindex, response):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^static int ntlm_read_ntlm_v2_client_challenge\(
 def ntlm_read_ntlm_v2_client_challenge(s, streamindex, challenge):
-	remaining = streamGetRemainingBytes(s, streamindex)
-	if remaining < 28:
-		print(f"ntlm_read_ntlm_v2_client_challenge: not enough bytes remaining in stream: {remaining}")
-		return False
 	challenge["RespType"], streamindex = streamReadUint8(s, streamindex)
 	challenge["HiRespType"], streamindex = streamReadUint8(s, streamindex)
 	challenge["Reserved1"], streamindex = streamReadUint16(s, streamindex)
