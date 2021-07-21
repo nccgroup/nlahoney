@@ -127,28 +127,7 @@ def ntlm_av_pair_get(pAvPairList, AvId):
 			avid =  Stream_Read_UINT16(avpairlist)
 			avlen =  Stream_Read_UINT16(avpairlist)
 
-			if avid == MsvAvEOL:
-				print("[i] Parsing.. AV ID type is MsvAvEOL")
-			elif avid == MsvAvNbComputerName:
-				print("[i] Parsing.. AV ID type is NB Computer Name")
-			elif avid == MsvAvNbDomainName:
-				print("[i] Parsing.. AV ID type is NB Domain Name")
-			elif avid == MsvAvDnsComputerName:
-				print("[i] Parsing.. AV ID type is DNS Computer Name")
-			elif avid == MsvAvDnsDomainName:
-				print("[i] Parsing.. AV ID type is DNS Domain Name")
-			elif avid == MsvAvDnsTreeName:
-				print("[i] Parsing.. AV ID type is DNS Tree Name")
-			elif avid == MsvAvFlags:
-				print("[i] Parsing.. AV ID type is Flags")
-			elif avid == MsvAvTimestamp:
-				print("[i] Parsing.. AV ID type is Time Stamp")
-			elif avid == MsvAvSingleHost:
-				print("[i] Parsing.. AV ID type is Single Host")
-			elif avid == MsvAvTargetName:
-				print("[i] Parsing.. AV ID type is Target Name")
-			elif avid == MsvChannelBindings:
-				print("[i] Parsing.. AV ID type is Channel Bindings")
+			print("[i] Parsing.. AV ID type is {avid=}")
 
 			if avid == AvId:
 				print(f"[i] Matched AV ID type - it is {avlen} bytes long")
