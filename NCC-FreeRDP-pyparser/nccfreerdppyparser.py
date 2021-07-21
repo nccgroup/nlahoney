@@ -240,7 +240,7 @@ def parseNegotiate(session, dir):
 	negotiateProductMajorVersion = Stream_Read_UINT8(hFile)
 	negotiateProductMinorVersion = Stream_Read_UINT8(hFile)
 	negotiateProductProductBuild = Stream_Read_UINT16(hFile)
-	reserved = Stream_Read_UINT8(hFile) # Skips over a reserved
+	__ = Stream_Read_UINT8(hFile) # Skip reserved byte
 	negotiateNTLMRevisionCurrent  = Stream_Read_UINT8(hFile)
 	print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 
@@ -252,54 +252,49 @@ def parseChallenge(session, dir):
 
 	streamindex = 0
 
-	hFile = open(strFile, 'rb')
-	ba = bytearray(hFile.read())
+	s = open(strFile, 'rb')
 
-	with io.BytesIO(ba[streamindex:]) as s:
-		ret = checkHeaderandGetType(s)
-		assert ret == MESSAGE_TYPE_CHALLENGE
-		streamindex += 8+4
+	ret = checkHeaderandGetType(s)
+	assert ret == MESSAGE_TYPE_CHALLENGE
 
 	# Target Name
-	with io.BytesIO(ba[streamindex:]) as s:
-		tnlen, tnmaxlen, tnbufferoffset = streamReadNTLMMessageField(s)
-		streamindex += 8
-		print(f"[i] Target Name Length: {tnlen} at {tnbufferoffset}")
+	tnlen, tnmaxlen, tnbufferoffset = streamReadNTLMMessageField(s)
+	print(f"[i] Target Name Length: {tnlen} at {tnbufferoffset}")
 
 	# Negotiate Flags
-	NegotiateFlags,streamindex  = streamReadUint32(ba,streamindex)
+	NegotiateFlags = Stream_Read_UINT32(s)
 	print("[i] Got Negotiate flags")
 
-	challenge,streamindex = streamReadBytes(ba,streamindex,8)
+	challenge = Stream_Read(s, 8)
 	print("[i] Got Servers challenge {binascii.hexlify(challenge))}")
 
-	reserved,streamindex = streamReadBytes(ba,streamindex,8)
-	print("[i] Skipped reserved ")
+	__ = Stream_Read(s, 8)
+	print("[i] Skipped reserved")
 
 	# Target Info
-	with io.BytesIO(ba[streamindex:]) as s:
-		tilen, timaxlen, tibufferoffset = streamReadNTLMMessageField(s)
-		streamindex += 8
-		print(f"[i] Target Info Length: {tilen} at {tibufferoffset}")
+	tilen, timaxlen, tibufferoffset = streamReadNTLMMessageField(s)
+	print(f"[i] Target Info Length: {tilen} at {tibufferoffset}")
 
 	if NegotiateFlags & NTLMSSP_NEGOTIATE_VERSION:
 		# Product Version
-		negotiateProductMajorVersion,streamindex = streamReadUint8(ba,streamindex)
-		negotiateProductMinorVersion,streamindex = streamReadUint8(ba,streamindex)
-		negotiateProductProductBuild,streamindex = streamReadUint16(ba,streamindex)
-		streamindex = streamindex + 1 # Skips over a reserved
-		negotiateNTLMRevisionCurrent,streamindex  = streamReadUint8(ba,streamindex)
+		negotiateProductMajorVersion = Stream_Read_UINT8(s)
+		negotiateProductMinorVersion = Stream_Read_UINT8(s)
+		negotiateProductProductBuild = Stream_Read_UINT16(s)
+		__ = Stream_Read_UINT8(s) # Skip reserved byte
+		negotiateNTLMRevisionCurrent = Stream_Read_UINT8(s)
 		print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 
 	# Target Name
 	if NegotiateFlags & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
-		targetname,throwaway = streamReadBytes(ba,tnbufferoffset,tnlen)
-		print("[i] Got Target Name " + str(targetname.decode('utf8', errors='ignore')))
+		s.seek(tnbufferoffset)
+		targetname = Stream_Read(s, tnlen)
+		print(f"[i] Got Target Name {targetname}")
 
 	# Target Info - maybe parse this?
 	if NegotiateFlags & 0x00800000 :	# NTLMSSP_NEGOTIATE_TARGET_INFO
-		targetinfo,throwaway= streamReadBytes(ba,tibufferoffset,tilen)
-		print("[i] Got Target Info " + str(binascii.hexlify(targetinfo)))
+		s.seek(tibufferoffset)
+		targetinfo = Stream_Read(s, tilen)
+		print("[i] Got Target Info {binascii.hexlify(targetinfo)}")
 
 	return challenge, targetname, targetinfo
 
@@ -372,77 +367,67 @@ def ntlm_read_ChallengeMessage(context, s):
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_AuthenticateMessage\(
-def ntlm_read_AuthenticateMessage(context, buffer):
-	ba = buffer
-	streamindex = 0
+def ntlm_read_AuthenticateMessage(context, s):
 	context["AUTHENTICATE_MESSAGE"] = {}
 	message = context["AUTHENTICATE_MESSAGE"]
 
-	with io.BytesIO(ba[streamindex:]) as s:
-		ret = checkHeaderandGetType(s)
-		assert ret == MESSAGE_TYPE_AUTHENTICATE
-		streamindex += 8+4
+	ret = checkHeaderandGetType(s)
+	assert ret == MESSAGE_TYPE_AUTHENTICATE
 
 	# LmChallengeResponse
-	with io.BytesIO(ba[streamindex:]) as s:
-		lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(s)
-		streamindex += 8
+	lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(s)
 
 	# NtChallengeResponse
 	#  Note: client challenge is in here and the message integrity code
-	with io.BytesIO(ba[streamindex:]) as s:
-		ntcrlen, ntcrmaxlen, ntcrbufferoffset = streamReadNTLMMessageField(s)
-		streamindex += 8
+	ntcrlen, ntcrmaxlen, ntcrbufferoffset = streamReadNTLMMessageField(s)
 
 	# Domain Name
-	with io.BytesIO(ba[streamindex:]) as s:
-		domlen, dommaxlen, dombufferoffset = streamReadNTLMMessageField(s)
-		streamindex += 8
-		print(f"[i] Domain Name Length: {domlen} at {dombufferoffset}")
+	domlen, dommaxlen, dombufferoffset = streamReadNTLMMessageField(s)
+	print(f"[i] Domain Name Length: {domlen} at {dombufferoffset}")
 
 	# User Name
-	with io.BytesIO(ba[streamindex:]) as s:
-		usrlen, usrmaxlen, usrbufferoffset = streamReadNTLMMessageField(s)
-		streamindex += 8
-		print(f"[i] User Name Length: {usrlen} at {usrbufferoffset}")
+	usrlen, usrmaxlen, usrbufferoffset = streamReadNTLMMessageField(s)
+	print(f"[i] User Name Length: {usrlen} at {usrbufferoffset}")
 
 	# Workstation
-	with io.BytesIO(ba[streamindex:]) as s:
-		wslen, wsmaxlen, wsbufferoffset = streamReadNTLMMessageField(s)
-		streamindex += 8
-		print(f"[i] Workstation Length: {wslen} at {wsbufferoffset}")
+	wslen, wsmaxlen, wsbufferoffset = streamReadNTLMMessageField(s)
+	print(f"[i] Workstation Length: {wslen} at {wsbufferoffset}")
 
 	# Encrypted Random Session Key
-	with io.BytesIO(ba[streamindex:]) as s:
-		ersklen, erskmaxlen, erskbufferoffset = streamReadNTLMMessageField(s)
-		streamindex += 8
-		print(f"[i] Encrypted Random Session Key Length: {ersklen} at {erskbufferoffset}")
-		message["EncryptedRandomSessionKey"], __ = streamReadBytes(ba,erskbufferoffset,ersklen)
-		print("[i] Got Encrypted Random Session Key")
+	ersklen, erskmaxlen, erskbufferoffset = streamReadNTLMMessageField(s)
+	print(f"[i] Encrypted Random Session Key Length: {ersklen} at {erskbufferoffset}")
+	pos = s.tell()
+	s.seek(erskbufferoffset)
+	message["EncryptedRandomSessionKey"] = Stream_Read(s, ersklen)
+	s.seek(pos)
+	print("[i] Got Encrypted Random Session Key")
 
 	# Negotiate Flags
-	message["NegotiateFlags"], streamindex  = streamReadUint32(ba,streamindex)
+	message["NegotiateFlags"] = Stream_Read_UINT32(s)
 	context["NegotiateKeyExchange"] = (message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_KEY_EXCH) != 0
 	print("[i] Got Negotiate flags")
 
 	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
-		with io.BytesIO(ba) as s:
-			message["Version"] = ntlm_read_version_info(s)
-		streamindex += 8	# Version (8 bytes)
+		message["Version"] = ntlm_read_version_info(s)
 
 	# Save this for later
-	PayloadBufferOffset = streamindex
+	PayloadBufferOffset = s.tell()
 
-	message["DomainName"], __ = streamReadBytes(ba,dombufferoffset,domlen)
-	print("[i] Got Domain " + str(message["DomainName"].decode('utf8', errors='ignore')))
-	message["UserName"], __ = streamReadBytes(ba,usrbufferoffset,usrlen)
-	print("[i] Got User Name " + str(message["UserName"].decode('utf8', errors='ignore')))
-	message["Workstation"], __ = streamReadBytes(ba,wsbufferoffset,wslen)
-	print("[i] Got Workstation " + str(message["Workstation"].decode('utf8', errors='ignore')))
-	message["LmChallengeResponse"], __ = streamReadBytes(ba, lmcrbufferoffset, lmcrlen)
-	print("[i] LM Challenge Response Length: " + str(lmcrlen) + " at " +str(lmcrbufferoffset))
-	message["NtChallengeResponse"], __ = streamReadBytes(ba, ntcrbufferoffset, ntcrlen)
-	print("[i] NT Challenge Response Length: " + str(ntcrlen) + " at " +str(ntcrbufferoffset))
+	s.seek(dombufferoffset)
+	message["DomainName"] = Stream_Read(s, domlen)
+	print(f"[i] Got Domain {message['DomainName']}")
+	s.seek(usrbufferoffset)
+	message["UserName"] = Stream_Read(s, usrlen)
+	print(f"[i] Got User Name {message['UserName']}")
+	s.seek(wsbufferoffset)
+	message["Workstation"] = Stream_Read(s, wslen)
+	print(f"[i] Got Workstation {message['Workstation']}")
+	s.seek(lmcrbufferoffset)
+	message["LmChallengeResponse"] = Stream_Read(s, lmcrlen)
+	print(f"[i] LM Challenge Response Length: {lmcrlen} at {lmcrbufferoffset}")
+	s.seek(ntcrbufferoffset)
+	message["NtChallengeResponse"] = Stream_Read(s, ntcrlen)
+	print(f"[i] NT Challenge Response Length: {ntcrlen} at {ntcrbufferoffset}")
 
 	# Parse the NtChallengeResponse we read above
 	if ntcrlen > 0:
@@ -458,15 +443,17 @@ def ntlm_read_AuthenticateMessage(context, buffer):
 			context["NTLMv2Response"]["Challenge"]["cbAvPairs"], MsvAvFlags)
 
 		if AvFlags:
-			flags = Data_Read_UINT32(AvFlags)
+			# should we be doing this instead?
+			# flags = Data_Read_UINT32(AvFlags)
 			flags = AvFlags
 
 	assert flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK
-	print("[i] Message Integrity Check/Code (MIC) Present at " + str(PayloadBufferOffset))
+	print(f"[i] Message Integrity Check/Code (MIC) Present at {PayloadBufferOffset}")
 
 	# I've verified the MIC returned here is correct
 	# from the patched ntlm_message.c on a known session
-	message["MessageIntegrityCheck"], __ = streamReadBytes(ba, PayloadBufferOffset, 16)
+	s.seek(PayloadBufferOffset)
+	message["MessageIntegrityCheck"] = Stream_Read(s, 16)
 	print(f"[i] Got MIC {binascii.hexlify(message['MessageIntegrityCheck'])}")
 
 
@@ -836,7 +823,7 @@ def parsefiles(session, dir):
 
 	print(f"[i] ** Parsing Authenticate for session {session}")
 	with open(f"{dir}/{session}.AuthenticateIn.bin", 'rb') as file:
-		ntlm_read_AuthenticateMessage(context, file.read())
+		ntlm_read_AuthenticateMessage(context, file)
 
 	# We do some calculations
 	success = ntlm_server_AuthenticateComplete(context)
