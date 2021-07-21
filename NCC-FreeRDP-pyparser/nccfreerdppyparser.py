@@ -751,9 +751,9 @@ def parsefiles(session, dir):
 	# We do some calculations
 	success = ntlm_server_AuthenticateComplete(context)
 	if success:
-		print("[*] Attacker from " + context["AUTHENTICATE_MESSAGE"]["Workstation"].decode() + " using " + context["AUTHENTICATE_MESSAGE"]["DomainName"].decode() + "\\" + context["AUTHENTICATE_MESSAGE"]["UserName"].decode() + " with " + "FUTURE password")
+		print(f"[*] Attacker from {context['AUTHENTICATE_MESSAGE']['Workstation']} using {context['AUTHENTICATE_MESSAGE']['DomainName']}\\{context['AUTHENTICATE_MESSAGE']['UserName']} with {'FUTURE password'}")
 	else:
-		print("[!] Attacker from " + context["AUTHENTICATE_MESSAGE"]["Workstation"].decode() + " using " + context["AUTHENTICATE_MESSAGE"]["DomainName"].decode() + "\\" + context["AUTHENTICATE_MESSAGE"]["UserName"].decode() + " but we failed to crack the password")
+		print("[!] Attacker from {context['AUTHENTICATE_MESSAGE']['Workstation']} using {context['AUTHENTICATE_MESSAGE']['DomainName']}\\{context['AUTHENTICATE_MESSAGE']['UserName']} but we failed to crack the password")
 
 
 if __name__ == "__main__":
