@@ -32,6 +32,7 @@ NTLMSSP_NEGOTIATE_VERSION = 0x02000000
 NTLMSSP_NEGOTIATE_KEY_EXCH = 0x40000000
 NTLMSSP_REQUEST_TARGET = 0x00000004
 SSPI_CREDENTIALS_HASH_LENGTH_OFFSET = 512
+UINT32_MAX = 0xffffffff
 
 # AV Pair
 # struct _NTLM_AV_PAIR
@@ -431,11 +432,8 @@ def ntlm_read_AuthenticateMessage(context, s):
 
 	# Parse the NtChallengeResponse we read above
 	if ntcrlen > 0:
-		snt = message["NtChallengeResponse"]
-		sntindex = 0
-		context["NTLMv2Response"] = {}
-		assert ntlm_read_ntlm_v2_response(snt, sntindex, context["NTLMv2Response"])
-
+		with io.BytesIO(message["NtChallengeResponse"]) as snt:
+			context["NTLMv2Response"] = ntlm_read_ntlm_v2_response(snt)
 		context["NtChallengeResponse"] = message["NtChallengeResponse"]
 		context["ChallengeTargetInfo"] = context["NTLMv2Response"]["Challenge"]["AvPairs"]
 		context["ClientChallenge"] = context["NTLMv2Response"]["Challenge"]["ClientChallenge"][:8]
@@ -456,29 +454,27 @@ def ntlm_read_AuthenticateMessage(context, s):
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_read_ntlm_v2_response\(
-def ntlm_read_ntlm_v2_response(s, streamindex, response):
-	response["Response"], streamindex = streamReadBytes(s, streamindex, 16)
-	response["Challenge"] = {}
-	return ntlm_read_ntlm_v2_client_challenge(s, streamindex, response["Challenge"])
+def ntlm_read_ntlm_v2_response(s):
+	response = {}
+	response["Response"] = Stream_Read(s, 16)
+	response["Challenge"] = ntlm_read_ntlm_v2_client_challenge(s)
+	return response
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^static int ntlm_read_ntlm_v2_client_challenge\(
-def ntlm_read_ntlm_v2_client_challenge(s, streamindex, challenge):
-	challenge["RespType"], streamindex = streamReadUint8(s, streamindex)
-	challenge["HiRespType"], streamindex = streamReadUint8(s, streamindex)
-	challenge["Reserved1"], streamindex = streamReadUint16(s, streamindex)
-	challenge["Reserved2"], streamindex = streamReadUint32(s, streamindex)
-	challenge["Timestamp"], streamindex = streamReadBytes(s, streamindex, 8)
-	challenge["ClientChallenge"], streamindex = streamReadBytes(s, streamindex, 8)
-	challenge["Reserved3"], streamindex = streamReadUint32(s, streamindex)
-	size = len(s) - streamindex
-
-	if size < 0 or size > 1<<32:
-		return False
-
-	challenge["cbAvPairs"] = size
-	challenge["AvPairs"], __ = streamReadBytes(s, streamindex, size)
-	return True
+def ntlm_read_ntlm_v2_client_challenge(s):
+	challenge = {}
+	challenge["RespType"] = Stream_Read_UINT8(s)
+	challenge["HiRespType"] = Stream_Read_UINT8(s)
+	challenge["Reserved1"] = Stream_Read_UINT16(s)
+	challenge["Reserved2"] = Stream_Read_UINT32(s)
+	challenge["Timestamp"] = Stream_Read(s, 8)
+	challenge["ClientChallenge"] = Stream_Read(s, 8)
+	challenge["Reserved3"] = Stream_Read_UINT32(s)
+	challenge["AvPairs"] = s.read()
+	challenge["cbAvPairs"] = len(challenge["AvPairs"])
+	assert challenge["cbAvPairs"] <= UINT32_MAX
+	return challenge
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_read_version_info\(
