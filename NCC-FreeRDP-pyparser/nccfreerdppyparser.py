@@ -20,8 +20,6 @@ import unittest
 from md4 import MD4
 
 
-bStreamDebug = False
-
 MESSAGE_TYPE_NEGOTIATE = 1
 MESSAGE_TYPE_CHALLENGE = 2
 MESSAGE_TYPE_AUTHENTICATE = 3
@@ -108,38 +106,6 @@ def ntlm_read_message_fields_buffer(s, fields):
 	fields["Buffer"] = Stream_Read(s, fields["Len"])
 
 
-def streamReadBytes(barray, streamindex, number):
-	if bStreamDebug is True: print("[d] streamindex " + str(streamindex))
-	raw = barray[streamindex:streamindex+number]
-	if bStreamDebug is True: print("[d] raw " + str(raw))
-	streamindex=streamindex+number
-	return raw, streamindex
-
-def streamReadUint32(barray, streamindex):
-	if bStreamDebug is True: print("[d] streamindex " + str(streamindex))
-	raw = barray[streamindex:streamindex+4]
-	if bStreamDebug is True: print("[d] raw " + str(raw))
-	ret = int.from_bytes(raw,byteorder='little', signed=False)
-	streamindex=streamindex+4
-	return ret, streamindex
-
-def streamReadUint16(barray, streamindex):
-	if bStreamDebug is True: print("[d] streamindex " + str(streamindex))
-	raw = barray[streamindex:streamindex+2]
-	if bStreamDebug is True: print("[d] raw " + str(raw))
-	ret = int.from_bytes(raw,byteorder='little', signed=False)
-	streamindex=streamindex+2
-	return ret, streamindex
-
-def streamReadUint8(barray, streamindex):
-	if bStreamDebug is True: print("[d] streamindex " + str(streamindex))
-	raw = barray[streamindex:streamindex+1]
-	if bStreamDebug is True: print("[d] raw " + str(raw))
-	ret = int.from_bytes(raw,byteorder='little', signed=False)
-	streamindex=streamindex+1
-	return ret, streamindex
-
-
 def checkHeaderandGetType(s):
 	header = Stream_Read(s, 8)
 	assert header[0:7] == b"NTLMSSP"
@@ -155,8 +121,6 @@ def streamReadNTLMMessageField(s):
 
 
 def ntlmAVPairGet(avpairlist, whichavid):
-	data = None
-
 	while True:
 		avid =  Stream_Read_UINT16(avpairlist)
 		avlen =  Stream_Read_UINT16(avpairlist)
@@ -188,27 +152,23 @@ def ntlmAVPairGet(avpairlist, whichavid):
 			print(f"[i] Matched AV ID type - it is {avlen} bytes long")
 
 			if avid == MsvAvFlags:
-				data =  Stream_Read_UINT32(avpairlist)
+				return Stream_Read_UINT32(avpairlist)
 			elif avid == MsvAvTimestamp:
-				data = Stream_Read(avpairlist, avlen)
+				return Stream_Read(avpairlist, avlen)
 			else:
 				raise ValueError(f"ntlmAVPairGet: unhandled {avid=}")
 
 			break
 		elif avid == MsvAvEOL:
-			break
+				raise ValueError(f"ntlmAVPairGet: MsvAvEOL")
 		else: # get next
 			avpairlist.seek(avlen, io.SEEK_CUR)
-
-	return avid, data
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_av_pairs.c:/^NTLM_AV_PAIR\* ntlm_av_pair_get\(
 def ntlm_av_pair_get(pAvPairList, AvId):
 	with io.BytesIO(pAvPairList) as s:
-		avid, pAvPair = ntlmAVPairGet(s, AvId)
-	assert avid == AvId
-	return pAvPair
+		return ntlmAVPairGet(s, AvId)
 
 
 #
