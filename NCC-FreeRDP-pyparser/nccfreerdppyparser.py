@@ -443,8 +443,6 @@ def ntlm_read_AuthenticateMessage(context, s):
 			context["NTLMv2Response"]["Challenge"]["cbAvPairs"], MsvAvFlags)
 
 		if AvFlags:
-			# should we be doing this instead?
-			# flags = Data_Read_UINT32(AvFlags)
 			flags = AvFlags
 
 	assert flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK
@@ -455,11 +453,6 @@ def ntlm_read_AuthenticateMessage(context, s):
 	s.seek(PayloadBufferOffset)
 	message["MessageIntegrityCheck"] = Stream_Read(s, 16)
 	print(f"[i] Got MIC {binascii.hexlify(message['MessageIntegrityCheck'])}")
-
-
-# ../FreeRDP-ResearchServer/winpr/include/winpr/endian.h:/^#define Data_Read_UINT32\(
-def Data_Read_UINT32(d):
-	return struct.unpack("<I", struct.pack(">I", d))[0]
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_read_ntlm_v2_response\(
