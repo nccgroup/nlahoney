@@ -85,9 +85,11 @@ def Stream_Read_UINT32(s):
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^static int ntlm_read_message_header\(
-def ntlm_read_message_header(s, header):
+def ntlm_read_message_header(s):
+	header = {}
 	header["Signature"] = Stream_Read(s, 8)
 	header["MessageType"] = Stream_Read_UINT32(s)
+	return header
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^static int ntlm_read_message_fields\(
@@ -303,8 +305,7 @@ def parseChallenge(session, dir):
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_ChallengeMessage\(
 def ntlm_read_ChallengeMessage(context, s):
 	StartOffset = s.tell()
-	message = {}
-	ntlm_read_message_header(s, message)
+	message = ntlm_read_message_header(s)
 	assert message["MessageType"] == MESSAGE_TYPE_CHALLENGE
 	message["TargetName"] = ntlm_read_message_fields(s)	# TargetNameFields (8 bytes)
 	message["NegotiateFlags"] = Stream_Read_UINT32(s)	# NegotiateFlags (4 bytes)
