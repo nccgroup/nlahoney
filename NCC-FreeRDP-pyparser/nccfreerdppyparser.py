@@ -179,7 +179,7 @@ def parseNegotiate(session, dir):
 	negotiateProductProductBuild = Stream_Read_UINT16(hFile)
 	__ = Stream_Read_UINT8(hFile) # Skip reserved byte
 	negotiateNTLMRevisionCurrent  = Stream_Read_UINT8(hFile)
-	print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
+	print(f"[i] from Version: {negotiateProductMajorVersion}.{negotiateProductMinorVersion} build (negotiateProductProductBuild) NTLM Revision {negotiateNTLMRevisionCurrent}")
 
 
 #
