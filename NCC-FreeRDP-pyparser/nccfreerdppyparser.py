@@ -103,10 +103,9 @@ def ntlm_read_message_fields(s):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^static int ntlm_read_message_fields_buffer\(
 def ntlm_read_message_fields_buffer(s, fields):
-	if fields["Len"] > 0:
-		offset = fields["BufferOffset"] + fields["Len"]
-		s.seek(fields["BufferOffset"])
-		fields["Buffer"] = Stream_Read(s, fields["Len"])
+	offset = fields["BufferOffset"] + fields["Len"]
+	s.seek(fields["BufferOffset"])
+	fields["Buffer"] = Stream_Read(s, fields["Len"])
 
 
 def streamReadBytes(barray, streamindex, number):
