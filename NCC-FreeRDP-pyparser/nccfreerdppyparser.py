@@ -120,55 +120,51 @@ def streamReadNTLMMessageField(s):
 	return len, maxlen, bufferoffset
 
 
-def ntlmAVPairGet(avpairlist, whichavid):
-	while True:
-		avid =  Stream_Read_UINT16(avpairlist)
-		avlen =  Stream_Read_UINT16(avpairlist)
-
-		if avid == MsvAvEOL:
-			print("[i] Parsing.. AV ID type is MsvAvEOL")
-		elif avid == MsvAvNbComputerName:
-			print("[i] Parsing.. AV ID type is NB Computer Name")
-		elif avid == MsvAvNbDomainName:
-			print("[i] Parsing.. AV ID type is NB Domain Name")
-		elif avid == MsvAvDnsComputerName:
-			print("[i] Parsing.. AV ID type is DNS Computer Name")
-		elif avid == MsvAvDnsDomainName:
-			print("[i] Parsing.. AV ID type is DNS Domain Name")
-		elif avid == MsvAvDnsTreeName:
-			print("[i] Parsing.. AV ID type is DNS Tree Name")
-		elif avid == MsvAvFlags:
-			print("[i] Parsing.. AV ID type is Flags")
-		elif avid == MsvAvTimestamp:
-			print("[i] Parsing.. AV ID type is Time Stamp")
-		elif avid == MsvAvSingleHost:
-			print("[i] Parsing.. AV ID type is Single Host")
-		elif avid == MsvAvTargetName:
-			print("[i] Parsing.. AV ID type is Target Name")
-		elif avid == MsvChannelBindings:
-			print("[i] Parsing.. AV ID type is Channel Bindings")
-
-		if avid == whichavid:
-			print(f"[i] Matched AV ID type - it is {avlen} bytes long")
-
-			if avid == MsvAvFlags:
-				return Stream_Read_UINT32(avpairlist)
-			elif avid == MsvAvTimestamp:
-				return Stream_Read(avpairlist, avlen)
-			else:
-				raise ValueError(f"ntlmAVPairGet: unhandled {avid=}")
-
-			break
-		elif avid == MsvAvEOL:
-				raise ValueError(f"ntlmAVPairGet: MsvAvEOL")
-		else: # get next
-			avpairlist.seek(avlen, io.SEEK_CUR)
-
-
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_av_pairs.c:/^NTLM_AV_PAIR\* ntlm_av_pair_get\(
 def ntlm_av_pair_get(pAvPairList, AvId):
-	with io.BytesIO(pAvPairList) as s:
-		return ntlmAVPairGet(s, AvId)
+	with io.BytesIO(pAvPairList) as avpairlist:
+		while True:
+			avid =  Stream_Read_UINT16(avpairlist)
+			avlen =  Stream_Read_UINT16(avpairlist)
+
+			if avid == MsvAvEOL:
+				print("[i] Parsing.. AV ID type is MsvAvEOL")
+			elif avid == MsvAvNbComputerName:
+				print("[i] Parsing.. AV ID type is NB Computer Name")
+			elif avid == MsvAvNbDomainName:
+				print("[i] Parsing.. AV ID type is NB Domain Name")
+			elif avid == MsvAvDnsComputerName:
+				print("[i] Parsing.. AV ID type is DNS Computer Name")
+			elif avid == MsvAvDnsDomainName:
+				print("[i] Parsing.. AV ID type is DNS Domain Name")
+			elif avid == MsvAvDnsTreeName:
+				print("[i] Parsing.. AV ID type is DNS Tree Name")
+			elif avid == MsvAvFlags:
+				print("[i] Parsing.. AV ID type is Flags")
+			elif avid == MsvAvTimestamp:
+				print("[i] Parsing.. AV ID type is Time Stamp")
+			elif avid == MsvAvSingleHost:
+				print("[i] Parsing.. AV ID type is Single Host")
+			elif avid == MsvAvTargetName:
+				print("[i] Parsing.. AV ID type is Target Name")
+			elif avid == MsvChannelBindings:
+				print("[i] Parsing.. AV ID type is Channel Bindings")
+
+			if avid == AvId:
+				print(f"[i] Matched AV ID type - it is {avlen} bytes long")
+
+				if avid == MsvAvFlags:
+					return Stream_Read_UINT32(avpairlist)
+				elif avid == MsvAvTimestamp:
+					return Stream_Read(avpairlist, avlen)
+				else:
+					raise ValueError(f"ntlm_av_pair_get: unhandled {avid=}")
+
+				break
+			elif avid == MsvAvEOL:
+					raise ValueError(f"ntlm_av_pair_get: MsvAvEOL")
+			else: # get next
+				avpairlist.seek(avlen, io.SEEK_CUR)
 
 
 #
