@@ -128,7 +128,7 @@ static int ntlm_read_ntlm_v2_client_challenge(wStream* s, NTLMv2_CLIENT_CHALLENG
 		return -1;
 
 	WLog_INFO(TAG,"[HONEY] ntlm_read_ntlm_v2_client_challenge");
-	
+
 	Stream_Read_UINT8(s, challenge->RespType);
 	Stream_Read_UINT8(s, challenge->HiRespType);
 	Stream_Read_UINT16(s, challenge->Reserved1);
@@ -156,7 +156,7 @@ static int ntlm_write_ntlm_v2_client_challenge(wStream* s, NTLMv2_CLIENT_CHALLEN
 	ULONG length;
 
 	WLog_INFO(TAG,"[HONEY] ntlm_write_ntlm_v2_client_challenge");
-	
+
 	Stream_Write_UINT8(s, challenge->RespType);
 	Stream_Write_UINT8(s, challenge->HiRespType);
 	Stream_Write_UINT16(s, challenge->Reserved1);
@@ -171,9 +171,9 @@ static int ntlm_write_ntlm_v2_client_challenge(wStream* s, NTLMv2_CLIENT_CHALLEN
 
 int ntlm_read_ntlm_v2_response(wStream* s, NTLMv2_RESPONSE* response)
 {
-	
+
 	WLog_INFO(TAG,"[HONEY] ntlm_read_ntlm_v2_response (reads the client challenge)");
-		
+
 	if (Stream_GetRemainingLength(s) < 16)
 		return -1;
 	Stream_Read(s, response->Response, 16);
@@ -183,7 +183,7 @@ int ntlm_read_ntlm_v2_response(wStream* s, NTLMv2_RESPONSE* response)
 int ntlm_write_ntlm_v2_response(wStream* s, NTLMv2_RESPONSE* response)
 {
 	WLog_INFO(TAG,"[HONEY] ntlm_write_ntlm_v2_response");
-		
+
 	Stream_Write(s, response->Response, 16);
 	return ntlm_write_ntlm_v2_client_challenge(s, &(response->Challenge));
 }
@@ -195,9 +195,9 @@ int ntlm_write_ntlm_v2_response(wStream* s, NTLMv2_RESPONSE* response)
 
 void ntlm_current_time(BYTE* timestamp)
 {
-	
+
 	WLog_INFO(TAG,"[HONEY] ntlm_current_time");
-		
+
 	FILETIME filetime;
 	ULARGE_INTEGER time64;
 	GetSystemTimeAsFileTime(&filetime);
@@ -214,7 +214,7 @@ void ntlm_current_time(BYTE* timestamp)
 void ntlm_generate_timestamp(NTLM_CONTEXT* context)
 {
 	WLog_INFO(TAG,"[HONEY] ntlm_generate_timestamp");
-		
+
 	if (memcmp(context->ChallengeTimestamp, NTLM_NULL_BUFFER, 8) != 0)
 		CopyMemory(context->Timestamp, context->ChallengeTimestamp, 8);
 	else
@@ -229,7 +229,7 @@ static int ntlm_fetch_ntlm_v2_hash(NTLM_CONTEXT* context, BYTE* hash)
 	sam = SamOpen(context->SamFile, TRUE);
 
 	WLog_INFO(TAG,"[HONEY] ntlm_fetch_ntlm_v2_hash");
-	
+
 	if (!sam)
 		return -1;
 
@@ -285,9 +285,9 @@ static int ntlm_convert_password_hash(NTLM_CONTEXT* context, BYTE* hash)
 	char* PasswordHash = NULL;
 	UINT32 PasswordHashLength = 0;
 	SSPI_CREDENTIALS* credentials = context->credentials;
-	
+
 	WLog_INFO(TAG,"[HONEY] ntlm_convert_password_hash");
-		
+
 	/* Password contains a password hash of length (PasswordLength -
 	 * SSPI_CREDENTIALS_HASH_LENGTH_OFFSET) */
 	PasswordHashLength = credentials->identity.PasswordLength - SSPI_CREDENTIALS_HASH_LENGTH_OFFSET;
@@ -408,7 +408,7 @@ static int ntlm_compute_ntlm_v2_hash(NTLM_CONTEXT* context, BYTE* hash)
 int ntlm_compute_lm_v2_response(NTLM_CONTEXT* context)
 {
 	WLog_INFO(TAG,"[HONEY] ntlm_compute_lm_v2_response");
-	
+
 	BYTE* response;
 	BYTE value[WINPR_MD5_DIGEST_LENGTH];
 
@@ -440,7 +440,7 @@ int ntlm_compute_lm_v2_response(NTLM_CONTEXT* context)
 	/* Concatenate the resulting HMAC-MD5 hash and the client challenge, giving us the LMv2 response
 	 * (24 bytes) */
 	CopyMemory(&response[16], context->ClientChallenge, 8);
-	
+
 	WLog_INFO(TAG,"[HONEY] RET ntlm_compute_lm_v2_response");
 	return 1;
 }
@@ -456,7 +456,7 @@ int ntlm_compute_lm_v2_response(NTLM_CONTEXT* context)
 int ntlm_compute_ntlm_v2_response(NTLM_CONTEXT* context)
 {
 	WLog_INFO(TAG,"[HONEY] ntlm_compute_ntlm_v2_response");
-	
+
 	BYTE* blob;
 	SecBuffer ntlm_v2_temp = { 0 };
 	SecBuffer ntlm_v2_temp_chal = { 0 };
@@ -495,7 +495,7 @@ int ntlm_compute_ntlm_v2_response(NTLM_CONTEXT* context)
 	blob = (BYTE*)ntlm_v2_temp_chal.pvBuffer;
 	CopyMemory(blob, context->ServerChallenge, 8);
 	CopyMemory(&blob[8], ntlm_v2_temp.pvBuffer, ntlm_v2_temp.cbBuffer);
-	
+
 	                         // Key
 	winpr_HMAC(WINPR_MD_MD5, (BYTE*)context->NtlmV2Hash, WINPR_MD5_DIGEST_LENGTH,
 			   // Input
@@ -509,13 +509,13 @@ int ntlm_compute_ntlm_v2_response(NTLM_CONTEXT* context)
 		goto exit;
 
 	blob = (BYTE*)context->NtChallengeResponse.pvBuffer;
-	
+
 	// result of above HMAC
 	CopyMemory(blob, context->NtProofString, WINPR_MD5_DIGEST_LENGTH);
 	CopyMemory(&blob[16], ntlm_v2_temp.pvBuffer, ntlm_v2_temp.cbBuffer);
-	
+
 	/* Compute SessionBaseKey, the HMAC-MD5 hash of NTProofStr using the NTLMv2 hash as the key */
-	
+
 	                          //Key
 	winpr_HMAC(WINPR_MD_MD5, (BYTE*)context->NtlmV2Hash, WINPR_MD5_DIGEST_LENGTH,
 	           // Input                                         // Output
@@ -525,9 +525,47 @@ int ntlm_compute_ntlm_v2_response(NTLM_CONTEXT* context)
 exit:
 	sspi_SecBufferFree(&ntlm_v2_temp);
 	sspi_SecBufferFree(&ntlm_v2_temp_chal);
-	
+
+	FILE *outFile = fopen("/tmp/ntlm_compute_ntlm_v2_response","a");
+	size_t wroteOut = 0;
+
+	&context->ChallengeTargetInfo
+	(BYTE*)context->NtlmV2Hash
+	CopyMemory(&blob[8], context->Timestamp, 8);        /* Timestamp (8 bytes) */
+	CopyMemory(&blob[16], context->ClientChallenge, 8); /* ClientChallenge (8 bytes) */
+	CopyMemory(blob, context->ServerChallenge, 8);
+	(BYTE*)context->NtlmV2Hash, WINPR_MD5_DIGEST_LENGTH
+	context->NtProofString, WINPR_MD5_DIGEST_LENGTH
+	context->NtChallengeResponse, ntlm_v2_temp.cbBuffer + 16
+	(BYTE*)context->NtlmV2Hash, WINPR_MD5_DIGEST_LENGTH,
+	context->NtProofString, WINPR_MD5_DIGEST_LENGTH
+	context->SessionBaseKey, WINPR_MD5_DIGEST_LENGTH
+
+	wroteOut += fprintf(outFile, "NtHashV1[16]:");
+	for(int i = 0; i < 16; i++)
+		wroteOut += fprintf(outFile, " %02x", NtHashV1[i]);
+	wroteOut += fprintf(outFile, "\n");
+	wroteOut += fprintf(outFile, "User[%d]:", (int)UserLength);
+	for(int i = 0; i < UserLength/2; i++)
+		wroteOut += fprintf(outFile, " %02x", User[i]);
+	wroteOut += fprintf(outFile, "\n");
+	wroteOut += fprintf(outFile, "Domain[%d]:", (int)DomainLength);
+	for(int i = 0; i < DomainLength/2; i++)
+		wroteOut += fprintf(outFile, " %02x", Domain[i]);
+	wroteOut += fprintf(outFile, "\n");
+	wroteOut += fprintf(outFile, "buffer[%d]:", (int)(UserLength + DomainLength));
+	for(UINT32 i = 0; i < UserLength + DomainLength; i++)
+		wroteOut += fprintf(outFile, " %02x", buffer[i]);
+	wroteOut += fprintf(outFile, "\n");
+	wroteOut += fprintf(outFile, "NtHash[%d]:", (int)WINPR_MD5_DIGEST_LENGTH);
+	for(int i = 0; i < WINPR_MD5_DIGEST_LENGTH; i++)
+		wroteOut += fprintf(outFile, " %02x", NtHash[i]);
+	wroteOut += fprintf(outFile, "\n");
+	fclose(outFile);
+	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,"/tmp/ntlm_compute_ntlm_v2_response");
+
 	WLog_INFO(TAG,"[HONEY] RET ntlm_compute_ntlm_v2_response");
-	
+
 	return ret;
 }
 
@@ -652,7 +690,7 @@ static int ntlm_generate_signing_key(BYTE* exported_session_key, PSecBuffer sign
                                      BYTE* signing_key)
 {
 	WLog_INFO(TAG,"[HONEY] ntlm_generate_signing_key");
-		
+
 	int length;
 	BYTE* value;
 	length = WINPR_MD5_DIGEST_LENGTH + sign_magic->cbBuffer;
@@ -684,7 +722,7 @@ static int ntlm_generate_signing_key(BYTE* exported_session_key, PSecBuffer sign
 void ntlm_generate_client_signing_key(NTLM_CONTEXT* context)
 {
 	WLog_INFO(TAG,"[HONEY] ntlm_generate_client_signing_key");
-		
+
 	SecBuffer signMagic;
 	signMagic.pvBuffer = (void*)NTLM_CLIENT_SIGN_MAGIC;
 	signMagic.cbBuffer = sizeof(NTLM_CLIENT_SIGN_MAGIC);
@@ -700,7 +738,7 @@ void ntlm_generate_client_signing_key(NTLM_CONTEXT* context)
 void ntlm_generate_server_signing_key(NTLM_CONTEXT* context)
 {
 	WLog_INFO(TAG,"[HONEY] ntlm_generate_server_signing_key");
-		
+
 	SecBuffer signMagic;
 	signMagic.pvBuffer = (void*)NTLM_SERVER_SIGN_MAGIC;
 	signMagic.cbBuffer = sizeof(NTLM_SERVER_SIGN_MAGIC);
@@ -722,7 +760,7 @@ static int ntlm_generate_sealing_key(BYTE* exported_session_key, PSecBuffer seal
 	SecBuffer buffer;
 
 	WLog_INFO(TAG,"[HONEY] ntlm_generate_sealing_key");
-	
+
 	if (!sspi_SecBufferAlloc(&buffer, WINPR_MD5_DIGEST_LENGTH + seal_magic->cbBuffer))
 		return -1;
 
@@ -751,7 +789,7 @@ static int ntlm_generate_sealing_key(BYTE* exported_session_key, PSecBuffer seal
 void ntlm_generate_client_sealing_key(NTLM_CONTEXT* context)
 {
 	WLog_INFO(TAG,"[HONEY] ntlm_generate_client_sealing_key");
-		
+
 	SecBuffer sealMagic;
 	sealMagic.pvBuffer = (void*)NTLM_CLIENT_SEAL_MAGIC;
 	sealMagic.cbBuffer = sizeof(NTLM_CLIENT_SEAL_MAGIC);
@@ -806,7 +844,7 @@ void ntlm_compute_message_integrity_check(NTLM_CONTEXT* context, BYTE* mic, UINT
 	WLog_INFO(TAG,"[HONEY] -- CHALLENGE_MESSAGE    - context->ChallengeMessage    - (we send)");
 	WLog_INFO(TAG,"[HONEY] -- AUTHENTICATE_MESSAGE - context->AuthenticateMessage - (we gen)");
 	WLog_INFO(TAG,"[HONEY] -- using ExportedSessionKey");
-		
+
 	/*
 	 * Compute the HMAC-MD5 hash of ConcatenationOf(NEGOTIATE_MESSAGE,
 	 * CHALLENGE_MESSAGE, AUTHENTICATE_MESSAGE) using the ExportedSessionKey
@@ -825,13 +863,13 @@ void ntlm_compute_message_integrity_check(NTLM_CONTEXT* context, BYTE* mic, UINT
 		                  context->ChallengeMessage.cbBuffer);
 		winpr_HMAC_Update(hmac, (BYTE*)context->AuthenticateMessage.pvBuffer,
 		                  context->AuthenticateMessage.cbBuffer);
-						  
-		// mic is the output 
+
+		// mic is the output
 		winpr_HMAC_Final(hmac, mic, WINPR_MD5_DIGEST_LENGTH);
-		
+
 		// We write the inputs out
-		
-		
+
+
 	}
 
 	winpr_HMAC_Free(hmac);
