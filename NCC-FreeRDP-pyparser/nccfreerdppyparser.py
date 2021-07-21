@@ -154,13 +154,12 @@ def streamReadNTLMMessageField(s):
 	return len, maxlen, bufferoffset
 
 
-def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
-	avpairlistindex= 0
+def ntlmAVPairGet(avpairlist, whichavid):
 	data = None
 
-	while(avpairlistindex < avpairlistlen):
-		avid,avpairlistindex =  streamReadUint16(avpairlist, avpairlistindex)
-		avlen,avpairlistindex =  streamReadUint16(avpairlist, avpairlistindex)
+	while True:
+		avid =  Stream_Read_UINT16(avpairlist)
+		avlen =  Stream_Read_UINT16(avpairlist)
 
 		if avid == MsvAvEOL:
 			print("[i] Parsing.. AV ID type is MsvAvEOL")
@@ -189,9 +188,9 @@ def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 			print(f"[i] Matched AV ID type - it is {avlen} bytes long")
 
 			if avid == MsvAvFlags:
-				data, avpairlistindex =  streamReadUint32(avpairlist, avpairlistindex)
+				data =  Stream_Read_UINT32(avpairlist)
 			elif avid == MsvAvTimestamp:
-				data, avpairlistindex = streamReadBytes(avpairlist, avpairlistindex, avlen)
+				data = Stream_Read(avpairlist, avlen)
 			else:
 				raise ValueError(f"ntlmAVPairGet: unhandled {avid=}")
 
@@ -199,14 +198,15 @@ def ntlmAVPairGet(avpairlist, avpairlistlen, whichavid):
 		elif avid == MsvAvEOL:
 			break
 		else: # get next
-			avpairlistindex = avpairlistindex + avlen
+			avpairlist.seek(avlen, io.SEEK_CUR)
 
 	return avid, data
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_av_pairs.c:/^NTLM_AV_PAIR\* ntlm_av_pair_get\(
-def ntlm_av_pair_get(pAvPairList, cbAvPairList, AvId):
-	avid, pAvPair = ntlmAVPairGet(pAvPairList, cbAvPairList, AvId)
+def ntlm_av_pair_get(pAvPairList, AvId):
+	with io.BytesIO(pAvPairList) as s:
+		avid, pAvPair = ntlmAVPairGet(s, AvId)
 	assert avid == AvId
 	return pAvPair
 
@@ -322,7 +322,7 @@ def ntlm_read_ChallengeMessage(context, s):
 		context["ChallengeTargetInfo"] = {}
 		context["ChallengeTargetInfo"]["pvBuffer"] = message["TargetInfo"]["Buffer"]
 		context["ChallengeTargetInfo"]["cbBuffer"] = message["TargetInfo"]["Len"]
-		context["ChallengeTimestamp"] = ntlm_av_pair_get(message["TargetInfo"]["Buffer"], message["TargetInfo"]["Len"], MsvAvTimestamp)
+		context["ChallengeTimestamp"] = ntlm_av_pair_get(message["TargetInfo"]["Buffer"], MsvAvTimestamp)
 
 		if context["ChallengeTimestamp"]:
 			if context["NTLMv2"]:
@@ -437,8 +437,7 @@ def ntlm_read_AuthenticateMessage(context, s):
 		context["NtChallengeResponse"] = message["NtChallengeResponse"]
 		context["ChallengeTargetInfo"] = context["NTLMv2Response"]["Challenge"]["AvPairs"]
 		context["ClientChallenge"] = context["NTLMv2Response"]["Challenge"]["ClientChallenge"][:8]
-		AvFlags = ntlm_av_pair_get(context["NTLMv2Response"]["Challenge"]["AvPairs"],
-			context["NTLMv2Response"]["Challenge"]["cbAvPairs"], MsvAvFlags)
+		AvFlags = ntlm_av_pair_get(context["NTLMv2Response"]["Challenge"]["AvPairs"], MsvAvFlags)
 
 		if AvFlags:
 			flags = AvFlags
