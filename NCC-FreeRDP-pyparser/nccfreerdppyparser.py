@@ -101,7 +101,6 @@ def ntlm_read_message_fields(s):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^static int ntlm_read_message_fields_buffer\(
 def ntlm_read_message_fields_buffer(s, fields):
-	offset = fields["BufferOffset"] + fields["Len"]
 	s.seek(fields["BufferOffset"])
 	fields["Buffer"] = Stream_Read(s, fields["Len"])
 
@@ -302,31 +301,30 @@ def ntlm_read_AuthenticateMessage(context, s):
 	ret = checkHeaderandGetType(s)
 	assert ret == MESSAGE_TYPE_AUTHENTICATE
 
-	# LmChallengeResponse
-	lmcrlen, lmcrmaxlen, lmcrbufferoffset = streamReadNTLMMessageField(s)
+	# LmChallengeResponseFields (8 bytes)
+	message["LmChallengeResponse"] = ntlm_read_message_fields(s)
 
-	# NtChallengeResponse
-	#  Note: client challenge is in here and the message integrity code
-	ntcrlen, ntcrmaxlen, ntcrbufferoffset = streamReadNTLMMessageField(s)
+	# NtChallengeResponseFields (8 bytes)
+	# Note: client challenge is in here and the message integrity code
+	message["NtChallengeResponse"] = ntlm_read_message_fields(s)
 
-	# Domain Name
-	domlen, dommaxlen, dombufferoffset = streamReadNTLMMessageField(s)
-	print(f"[i] Domain Name Length: {domlen} at {dombufferoffset}")
+	# DomainNameFields (8 bytes)
+	message["DomainName"] = ntlm_read_message_fields(s)
+	print(f"[i] Domain Name Length: {message['DomainName']['Len']} at {message['DomainName']['BufferOffset']}")
 
-	# User Name
-	usrlen, usrmaxlen, usrbufferoffset = streamReadNTLMMessageField(s)
-	print(f"[i] User Name Length: {usrlen} at {usrbufferoffset}")
+	# UserNameFields (8 bytes)
+	message["UserName"] = ntlm_read_message_fields(s)
+	print(f"[i] User Name Length: {message['UserName']['Len']} at {message['UserName']['BufferOffset']}")
 
-	# Workstation
-	wslen, wsmaxlen, wsbufferoffset = streamReadNTLMMessageField(s)
-	print(f"[i] Workstation Length: {wslen} at {wsbufferoffset}")
+	# WorkstationFields (8 bytes)
+	message["Workstation"] = ntlm_read_message_fields(s)
+	print(f"[i] Workstation Length: {message['Workstation']['Len']} at {message['Workstation']['BufferOffset']}")
 
-	# Encrypted Random Session Key
-	ersklen, erskmaxlen, erskbufferoffset = streamReadNTLMMessageField(s)
-	print(f"[i] Encrypted Random Session Key Length: {ersklen} at {erskbufferoffset}")
+	# EncryptedRandomSessionKeyFields (8 bytes)
+	message["EncryptedRandomSessionKey"] = ntlm_read_message_fields(s)
+	print(f"[i] Encrypted Random Session Key Length: {message['EncryptedRandomSessionKey']['Len']} at {message['EncryptedRandomSessionKey']['BufferOffset']}")
 	pos = s.tell()
-	s.seek(erskbufferoffset)
-	message["EncryptedRandomSessionKey"] = Stream_Read(s, ersklen)
+	ntlm_read_message_fields_buffer(s, message["EncryptedRandomSessionKey"])
 	s.seek(pos)
 	print("[i] Got Encrypted Random Session Key")
 
@@ -341,25 +339,20 @@ def ntlm_read_AuthenticateMessage(context, s):
 	# Save this for later
 	PayloadBufferOffset = s.tell()
 
-	s.seek(dombufferoffset)
-	message["DomainName"] = Stream_Read(s, domlen)
-	print(f"[i] Got Domain {message['DomainName']}")
-	s.seek(usrbufferoffset)
-	message["UserName"] = Stream_Read(s, usrlen)
-	print(f"[i] Got User Name {message['UserName']}")
-	s.seek(wsbufferoffset)
-	message["Workstation"] = Stream_Read(s, wslen)
-	print(f"[i] Got Workstation {message['Workstation']}")
-	s.seek(lmcrbufferoffset)
-	message["LmChallengeResponse"] = Stream_Read(s, lmcrlen)
-	print(f"[i] LM Challenge Response Length: {lmcrlen} at {lmcrbufferoffset}")
-	s.seek(ntcrbufferoffset)
-	message["NtChallengeResponse"] = Stream_Read(s, ntcrlen)
-	print(f"[i] NT Challenge Response Length: {ntcrlen} at {ntcrbufferoffset}")
+	ntlm_read_message_fields_buffer(s, message["DomainName"])
+	print(f"[i] Got DomainName {message['DomainName']['Buffer']}")
+	ntlm_read_message_fields_buffer(s, message["UserName"])
+	print(f"[i] Got UserName {message['UserName']['Buffer']}")
+	ntlm_read_message_fields_buffer(s, message["Workstation"])
+	print(f"[i] Got Workstation {message['Workstation']['Buffer']}")
+	ntlm_read_message_fields_buffer(s, message["LmChallengeResponse"])
+	print(f"[i] LmChallengeResponse Length: {message['LmChallengeResponse']['Len']} at {message['LmChallengeResponse']['BufferOffset']}")
+	ntlm_read_message_fields_buffer(s, message["NtChallengeResponse"])
+	print(f"[i] NtChallengeResponse Length: {message['NtChallengeResponse']['Len']} at {message['NtChallengeResponse']['BufferOffset']}")
 
 	# Parse the NtChallengeResponse we read above
-	if ntcrlen > 0:
-		with io.BytesIO(message["NtChallengeResponse"]) as snt:
+	if message['NtChallengeResponse']['Len'] > 0:
+		with io.BytesIO(message["NtChallengeResponse"]["Buffer"]) as snt:
 			context["NTLMv2Response"] = ntlm_read_ntlm_v2_response(snt)
 		context["NtChallengeResponse"] = message["NtChallengeResponse"]
 		context["ChallengeTargetInfo"] = context["NTLMv2Response"]["Challenge"]["AvPairs"]
