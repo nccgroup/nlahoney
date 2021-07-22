@@ -323,10 +323,6 @@ def ntlm_read_AuthenticateMessage(context, s):
 	# EncryptedRandomSessionKeyFields (8 bytes)
 	message["EncryptedRandomSessionKey"] = ntlm_read_message_fields(s)
 	print(f"[i] Encrypted Random Session Key Length: {message['EncryptedRandomSessionKey']['Len']} at {message['EncryptedRandomSessionKey']['BufferOffset']}")
-	pos = s.tell()
-	ntlm_read_message_fields_buffer(s, message["EncryptedRandomSessionKey"])
-	s.seek(pos)
-	print("[i] Got Encrypted Random Session Key")
 
 	# Negotiate Flags
 	message["NegotiateFlags"] = Stream_Read_UINT32(s)
@@ -339,16 +335,18 @@ def ntlm_read_AuthenticateMessage(context, s):
 	# Save this for later
 	PayloadBufferOffset = s.tell()
 
+	ntlm_read_message_fields_buffer(s, message["LmChallengeResponse"])
+	print(f"[i] LmChallengeResponse Length: {message['LmChallengeResponse']['Len']} at {message['LmChallengeResponse']['BufferOffset']}")
+	ntlm_read_message_fields_buffer(s, message["NtChallengeResponse"])
+	print(f"[i] NtChallengeResponse Length: {message['NtChallengeResponse']['Len']} at {message['NtChallengeResponse']['BufferOffset']}")
 	ntlm_read_message_fields_buffer(s, message["DomainName"])
 	print(f"[i] Got DomainName {message['DomainName']['Buffer']}")
 	ntlm_read_message_fields_buffer(s, message["UserName"])
 	print(f"[i] Got UserName {message['UserName']['Buffer']}")
 	ntlm_read_message_fields_buffer(s, message["Workstation"])
 	print(f"[i] Got Workstation {message['Workstation']['Buffer']}")
-	ntlm_read_message_fields_buffer(s, message["LmChallengeResponse"])
-	print(f"[i] LmChallengeResponse Length: {message['LmChallengeResponse']['Len']} at {message['LmChallengeResponse']['BufferOffset']}")
-	ntlm_read_message_fields_buffer(s, message["NtChallengeResponse"])
-	print(f"[i] NtChallengeResponse Length: {message['NtChallengeResponse']['Len']} at {message['NtChallengeResponse']['BufferOffset']}")
+	ntlm_read_message_fields_buffer(s, message["EncryptedRandomSessionKey"])
+	print("[i] Got Encrypted Random Session Key")
 
 	# Parse the NtChallengeResponse we read above
 	if message['NtChallengeResponse']['Len'] > 0:
