@@ -114,10 +114,8 @@ def checkHeaderandGetType(s):
 
 
 def streamReadNTLMMessageField(s):
-	len = Stream_Read_UINT16(s)
-	maxlen = Stream_Read_UINT16(s)
-	bufferoffset = Stream_Read_UINT32(s)
-	return len, maxlen, bufferoffset
+	fields = ntlm_read_message_fields(s)
+	return fields["Len"], fields["MaxLen"], fields["BufferOffset"]
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_av_pairs.c:/^NTLM_AV_PAIR\* ntlm_av_pair_get\(
@@ -146,40 +144,34 @@ def ntlm_av_pair_get(pAvPairList, AvId):
 				avpairlist.seek(avlen, io.SEEK_CUR)
 
 
-#
-def parseNegotiate(session, dir):
-	strFile = dir +"/" + str(session) + ".NegotiateIn.bin"
-	print(f"[i] ** Parsing {strFile}")
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_NegotiateMessage\(
+def ntlm_read_NegotiateMessage(context, s):
+	message = {}
 
-	hFile = open(strFile, 'rb')
-
-	ret = checkHeaderandGetType(hFile)
+	ret = checkHeaderandGetType(s)
 	assert ret == MESSAGE_TYPE_NEGOTIATE
 
 	# Negotiate Flags
-	NegotiateFlags = Stream_Read_UINT32(hFile)
-	assert NegotiateFlags & NTLMSSP_REQUEST_TARGET
-	assert NegotiateFlags & NTLMSSP_NEGOTIATE_NTLM
-	assert NegotiateFlags & NTLMSSP_NEGOTIATE_UNICODE
+	message["NegotiateFlags"] = Stream_Read_UINT32(s) # NegotiateFlags (4 bytes)
+	assert message["NegotiateFlags"] & NTLMSSP_REQUEST_TARGET
+	assert message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_NTLM
+	assert message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_UNICODE
 	print("[i] Got Negotiate flags")
 
-	# Domain
-	len, maxlen, bufferoffset = streamReadNTLMMessageField(hFile)
-	print(f"[i] Domain Length: {len} at {bufferoffset}")
+	# DomainNameFields (8 bytes)
+	message["Domain"] = ntlm_read_message_fields(s)
+	print(f"[i] Domain Length: {message['Domain']['Len']} at {message['Domain']['BufferOffset']}")
 
-	# Workstation
-	len, maxlen, bufferoffset = streamReadNTLMMessageField(hFile)
-	print(f"[i] Workstation Length: {len} at {bufferoffset}")
+	# WorkstationFields (8 bytes)
+	message["Workstation"] = ntlm_read_message_fields(s)
+	print(f"[i] Workstation Length: {message['Workstation']['Len']} at {message['Workstation']['BufferOffset']}")
 
-	assert NegotiateFlags & NTLMSSP_NEGOTIATE_VERSION
+	# Version (8 bytes)
+	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
+		message["Version"] = ntlm_read_version_info(s)
 
-	# Product Version
-	negotiateProductMajorVersion = Stream_Read_UINT8(hFile)
-	negotiateProductMinorVersion = Stream_Read_UINT8(hFile)
-	negotiateProductProductBuild = Stream_Read_UINT16(hFile)
-	__ = Stream_Read_UINT8(hFile) # Skip reserved byte
-	negotiateNTLMRevisionCurrent  = Stream_Read_UINT8(hFile)
-	print(f"[i] from Version: {negotiateProductMajorVersion}.{negotiateProductMinorVersion} build (negotiateProductProductBuild) NTLM Revision {negotiateNTLMRevisionCurrent}")
+	context["NegotiateMessage"] = s.read()
+	return message
 
 
 #
@@ -629,7 +621,11 @@ def parsefiles(session, dir):
 	}
 
 	# We parse the files
-	parseNegotiate(session,dir)
+	print(f"[i] ** Parsing Client Negotiate for session {session}")
+	strFile = dir +"/" + str(session) + ".NegotiateIn.bin"
+	print(f"[i] ** Parsing {strFile}")
+	with open(strFile, "rb") as s:
+		ntlm_read_NegotiateMessage(context, s)
 
 	context["ServerChallenge"], targetname, targetinfo = parseChallenge(session,dir)
 

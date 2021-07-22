@@ -138,7 +138,7 @@ static void ntlm_write_message_fields(wStream* s, NTLM_MESSAGE_FIELDS* fields)
 
 static int ntlm_read_message_fields_buffer(wStream* s, NTLM_MESSAGE_FIELDS* fields)
 {
-	
+
 	if (fields->Len > 0)
 	{
 		const UINT32 offset = fields->BufferOffset + fields->Len;
@@ -210,7 +210,7 @@ SECURITY_STATUS ntlm_read_NegotiateMessage(NTLM_CONTEXT* context, PSecBuffer buf
 	wroteOut = fwrite((BYTE*)buffer->pvBuffer,sizeof(byte),buffer->cbBuffer,ptrFile);
 	fclose(ptrFile);
 	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
-	
+
 	wStream* s;
 	size_t length;
 	NTLM_NEGOTIATE_MESSAGE* message;
@@ -309,10 +309,10 @@ SECURITY_STATUS ntlm_read_NegotiateMessage(NTLM_CONTEXT* context, PSecBuffer buf
 
 SECURITY_STATUS ntlm_write_NegotiateMessage(NTLM_CONTEXT* context, PSecBuffer buffer)
 {
-	
+
 	WLog_INFO(TAG,"[HONEY] ntlm_write_NegotiateMessage");
 	WLog_INFO(TAG,"[HONEY]   ->- generates NegotiateMessage");
-		
+
 	wStream* s;
 	size_t length;
 	NTLM_NEGOTIATE_MESSAGE* message;
@@ -392,7 +392,7 @@ SECURITY_STATUS ntlm_write_NegotiateMessage(NTLM_CONTEXT* context, PSecBuffer bu
 	wroteOut = fwrite((BYTE*)context->NegotiateMessage.pvBuffer,sizeof(BYTE),context->NegotiateMessage.cbBuffer,ptrFile);
 	fclose(ptrFile);
 	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
-	
+
 	context->state = NTLM_STATE_CHALLENGE;
 	Stream_Free(s, FALSE);
 	return SEC_I_CONTINUE_NEEDED;
@@ -400,9 +400,9 @@ SECURITY_STATUS ntlm_write_NegotiateMessage(NTLM_CONTEXT* context, PSecBuffer bu
 
 SECURITY_STATUS ntlm_read_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer buffer)
 {
-	
+
 	WLog_INFO(TAG,"[HONEY] ntlm_read_ChallengeMessage");
-	
+
 	char strFileOut[255];
 	sprintf(strFileOut,"/tmp/%u.ChallengeIn.bin",context->randID);
 	FILE *ptrFile = fopen(strFileOut,"wb");
@@ -410,7 +410,7 @@ SECURITY_STATUS ntlm_read_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer buf
 	wroteOut = fwrite((BYTE*)buffer->pvBuffer,sizeof(byte),buffer->cbBuffer,ptrFile);
 	fclose(ptrFile);
 	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
-	
+
 	SECURITY_STATUS status = SEC_E_INVALID_TOKEN;
 	wStream* s;
 	size_t length;
@@ -600,7 +600,7 @@ SECURITY_STATUS ntlm_write_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer bu
 
 	WLog_INFO(TAG,"[HONEY] ntlm_write_ChallengeMessage");
 	WLog_INFO(TAG,"[HONEY]   ->- ServerChallenge");
-		
+
 	wStream* s;
 	size_t length;
 	UINT32 PayloadOffset;
@@ -624,7 +624,7 @@ SECURITY_STATUS ntlm_write_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer bu
 
 	CopyMemory(message->ServerChallenge, context->ServerChallenge, 8); /* ServerChallenge */
 
-	
+
 	message->NegotiateFlags = context->NegotiateFlags;
 	ntlm_populate_message_header((NTLM_MESSAGE_HEADER*)message, MESSAGE_TYPE_CHALLENGE);
 	/* Message Header (12 bytes) */
@@ -694,7 +694,7 @@ SECURITY_STATUS ntlm_write_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer bu
 #endif
 	context->state = NTLM_STATE_AUTHENTICATE;
 	Stream_Free(s, FALSE);
-	
+
 	char strFileOut[255];
 	sprintf(strFileOut,"/tmp/%u.ChallengeOut.bin",context->randID);
 	FILE *ptrFile = fopen(strFileOut,"wb");
@@ -702,17 +702,17 @@ SECURITY_STATUS ntlm_write_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer bu
 	wroteOut = fwrite((BYTE*)context->ChallengeMessage.pvBuffer,sizeof(BYTE),context->ChallengeMessage.cbBuffer,ptrFile);
 	fclose(ptrFile);
 	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
-	
+
 	WLog_INFO(TAG,"[HONEY] RET ntlm_write_ChallengeMessage");
-	
+
 	return SEC_I_CONTINUE_NEEDED;
 }
 
 SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer buffer)
 {
-	
+
 	WLog_INFO(TAG,"[HONEY] ntlm_read_AuthenticateMessage");
-	
+
 	WLog_INFO(TAG,"[HONEY]   -<- AuthenticateMessage");
 
 
@@ -723,7 +723,7 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 	wroteOut = fwrite((BYTE*)buffer->pvBuffer,sizeof(byte),buffer->cbBuffer,ptrFile);
 	fclose(ptrFile);
 	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
-	
+
 	SECURITY_STATUS status = SEC_E_INVALID_TOKEN;
 	wStream* s;
 	size_t length;
@@ -757,7 +757,7 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 	if (ntlm_read_message_fields(s, &(message->DomainName)) < 0) /* DomainNameFields (8 bytes) */
 		goto fail;
 		WLog_INFO(TAG,"[HONEY] -- domain %s",&(message->DomainName) );
-		
+
 	if (ntlm_read_message_fields(s, &(message->UserName)) < 0) /* UserNameFields (8 bytes) */
 		goto fail;
 		WLog_INFO(TAG,"[HONEY] -- user %s",&(message->UserName) );
@@ -875,7 +875,7 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 		Stream_Read(s, message->MessageIntegrityCheck, 16);
 		fprintf(stdout,"[HONEY] MIC\n");
 		winpr_HexDump(TAG, WLOG_INFO, message->MessageIntegrityCheck, 16);
-			
+
 	}
 
 	status = SEC_E_INTERNAL_ERROR;
@@ -932,9 +932,9 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 	Stream_Free(s, FALSE);
 	/* Computations beyond this point require the NTLM hash of the password */
 	context->state = NTLM_STATE_COMPLETION;
-	
+
 	WLog_INFO(TAG,"[HONEY] RET ntlm_read_AuthenticateMessage");
-		
+
 	return SEC_I_COMPLETE_NEEDED;
 
 fail:
@@ -951,9 +951,9 @@ fail:
 
 SECURITY_STATUS ntlm_write_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer buffer)
 {
-	
+
 	WLog_INFO(TAG,"[HONEY] ntlm_write_AuthenticateMessage");
-		
+
 	wStream* s;
 	size_t length;
 	UINT32 PayloadBufferOffset;
@@ -1135,7 +1135,7 @@ SECURITY_STATUS ntlm_write_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer
 	wroteOut = fwrite((BYTE*)context->AuthenticateMessage.pvBuffer,sizeof(BYTE),context->AuthenticateMessage.cbBuffer,ptrFile);
 	fclose(ptrFile);
 	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
-	
+
 	context->state = NTLM_STATE_FINAL;
 	Stream_Free(s, FALSE);
 	return SEC_I_COMPLETE_NEEDED;
@@ -1145,7 +1145,7 @@ SECURITY_STATUS ntlm_server_AuthenticateComplete(NTLM_CONTEXT* context)
 {
 	WLog_INFO(TAG,"[HONEY] ntlm_server_AuthenticateComplete");
 	WLog_INFO(TAG,"[HONEY]   -- Final stage");
-		
+
 	UINT32 flags = 0;
 	size_t cbAvFlags;
 	NTLM_AV_PAIR* AvFlags = NULL;
@@ -1183,7 +1183,7 @@ SECURITY_STATUS ntlm_server_AuthenticateComplete(NTLM_CONTEXT* context)
 		ZeroMemory(
 		    &((PBYTE)context->AuthenticateMessage.pvBuffer)[context->MessageIntegrityCheckOffset],
 		    16);
-			
+
 		// HONEY SERVER
 		ntlm_compute_message_integrity_check(context, messageIntegrityCheck,
 		                                     sizeof(messageIntegrityCheck));
