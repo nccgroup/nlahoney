@@ -157,8 +157,6 @@ def ntlm_av_pair_get(pAvPairList, AvId):
 			avid =  Stream_Read_UINT16(avpairlist)
 			avlen =  Stream_Read_UINT16(avpairlist)
 
-			print("[i] Parsing.. AV ID type is {avid=}")
-
 			if avid == AvId:
 				print(f"[i] Matched AV ID type - it is {avlen} bytes long")
 
@@ -445,6 +443,8 @@ def ntlm_read_AuthenticateMessage(context, s):
 		credentials["identity"]["Domain"] = message["DomainName"]["Buffer"]
 		credentials["identity"]["DomainLength"] = message["DomainName"]["Len"] // 2
 
+	context["AUTHENTICATE_MESSAGE"] = message
+
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_read_ntlm_v2_response\(
 def ntlm_read_ntlm_v2_response(s):
@@ -510,7 +510,7 @@ def ntlm_server_AuthenticateComplete(context):
 		if ourmic == False:
 			print("ntlm_server_AuthenticateComplete: ntlm_compute_message_integrity_check failed")
 			return False
-		mic = context['AuthenticateMessage']['MessageIntegrityCheck']
+		mic = context['AuthenticateMessage']
 		return ourmic == mic
 	else:
 		"""
@@ -789,9 +789,9 @@ def parsefiles(session, dir):
 	# We do some calculations
 	success = ntlm_server_AuthenticateComplete(context)
 	if success:
-		print(f"[*] Attacker from {context['AUTHENTICATE_MESSAGE']['Workstation']} using {context['AUTHENTICATE_MESSAGE']['DomainName']}\\{context['AUTHENTICATE_MESSAGE']['UserName']} with {'FUTURE password'}")
+		print(f"[*] Attacker from {context['AUTHENTICATE_MESSAGE']['Workstation']['Buffer']} using {context['AUTHENTICATE_MESSAGE']['DomainName']['Buffer']}\\{context['AUTHENTICATE_MESSAGE']['UserName']['Buffer']} with {'FUTURE password'}")
 	else:
-		print("[!] Attacker from {context['AUTHENTICATE_MESSAGE']['Workstation']} using {context['AUTHENTICATE_MESSAGE']['DomainName']}\\{context['AUTHENTICATE_MESSAGE']['UserName']} but we failed to crack the password")
+		print(f"[!] Attacker from {context['AUTHENTICATE_MESSAGE']['Workstation']['Buffer']} using {context['AUTHENTICATE_MESSAGE']['DomainName']['Buffer']}\\{context['AUTHENTICATE_MESSAGE']['UserName']['Buffer']} but we failed to crack the password")
 
 
 if __name__ == "__main__":
