@@ -295,6 +295,8 @@ def ntlm_read_ChallengeMessage(context, s):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_AuthenticateMessage\(
 def ntlm_read_AuthenticateMessage(context, s):
+	credentials = context["credentials"]
+
 	context["AUTHENTICATE_MESSAGE"] = {}
 	message = context["AUTHENTICATE_MESSAGE"]
 
@@ -324,29 +326,28 @@ def ntlm_read_AuthenticateMessage(context, s):
 	message["EncryptedRandomSessionKey"] = ntlm_read_message_fields(s)
 	print(f"[i] Encrypted Random Session Key Length: {message['EncryptedRandomSessionKey']['Len']} at {message['EncryptedRandomSessionKey']['BufferOffset']}")
 
-	# Negotiate Flags
+	# NegotiateFlags (4 bytes)
 	message["NegotiateFlags"] = Stream_Read_UINT32(s)
 	context["NegotiateKeyExchange"] = (message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_KEY_EXCH) != 0
 	print("[i] Got Negotiate flags")
 
 	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
+		# Version (8 bytes)
 		message["Version"] = ntlm_read_version_info(s)
 
 	# Save this for later
 	PayloadBufferOffset = s.tell()
 
-	ntlm_read_message_fields_buffer(s, message["LmChallengeResponse"])
-	print(f"[i] LmChallengeResponse Length: {message['LmChallengeResponse']['Len']} at {message['LmChallengeResponse']['BufferOffset']}")
-	ntlm_read_message_fields_buffer(s, message["NtChallengeResponse"])
-	print(f"[i] NtChallengeResponse Length: {message['NtChallengeResponse']['Len']} at {message['NtChallengeResponse']['BufferOffset']}")
 	ntlm_read_message_fields_buffer(s, message["DomainName"])
 	print(f"[i] Got DomainName {message['DomainName']['Buffer']}")
 	ntlm_read_message_fields_buffer(s, message["UserName"])
 	print(f"[i] Got UserName {message['UserName']['Buffer']}")
 	ntlm_read_message_fields_buffer(s, message["Workstation"])
 	print(f"[i] Got Workstation {message['Workstation']['Buffer']}")
-	ntlm_read_message_fields_buffer(s, message["EncryptedRandomSessionKey"])
-	print("[i] Got Encrypted Random Session Key")
+	ntlm_read_message_fields_buffer(s, message["LmChallengeResponse"])
+	print(f"[i] LmChallengeResponse Length: {message['LmChallengeResponse']['Len']} at {message['LmChallengeResponse']['BufferOffset']}")
+	ntlm_read_message_fields_buffer(s, message["NtChallengeResponse"])
+	print(f"[i] NtChallengeResponse Length: {message['NtChallengeResponse']['Len']} at {message['NtChallengeResponse']['BufferOffset']}")
 
 	# Parse the NtChallengeResponse we read above
 	if message['NtChallengeResponse']['Len'] > 0:
@@ -360,14 +361,31 @@ def ntlm_read_AuthenticateMessage(context, s):
 		if AvFlags:
 			flags = AvFlags
 
-	assert flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK
-	print(f"[i] Message Integrity Check/Code (MIC) Present at {PayloadBufferOffset}")
+	# EncryptedRandomSessionKey
+	ntlm_read_message_fields_buffer(s, message["EncryptedRandomSessionKey"])
+	if message["EncryptedRandomSessionKey"]["Len"]:
+		assert message["EncryptedRandomSessionKey"]["Len"] == 16
+		context["EncryptedRandomSessionKey"] = message["EncryptedRandomSessionKey"]["Buffer"]
+	print("[i] Got Encrypted Random Session Key")
+
+	context["AuthenticateMessage"] = s.read()
 
 	# I've verified the MIC returned here is correct
 	# from the patched ntlm_message.c on a known session
 	s.seek(PayloadBufferOffset)
+
+	assert flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK
+	print(f"[i] Message Integrity Check/Code (MIC) Present at {PayloadBufferOffset}")
+	context["MessageIntegrityCheckOffset"] = s.tell()
 	message["MessageIntegrityCheck"] = Stream_Read(s, 16)
 	print(f"[i] Got MIC {binascii.hexlify(message['MessageIntegrityCheck'])}")
+
+	if message["UserName"]["Len"]:
+		credentials["identity"]["User"] = message["UserName"]["Buffer"]
+		credentials["identity"]["UserLength"] = message["UserName"]["Len"] // 2
+	if message["DomainName"]["Len"]:
+		credentials["identity"]["Domain"] = message["DomainName"]["Buffer"]
+		credentials["identity"]["DomainLength"] = message["DomainName"]["Len"] // 2
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_read_ntlm_v2_response\(
