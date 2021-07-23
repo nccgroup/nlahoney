@@ -575,6 +575,11 @@ def ntlm_rc4k(key, plaintext):
 	return cipherList
 
 
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_generate_exported_session_key\(
+def ntlm_generate_exported_session_key(context):
+	context["ExportedSessionKey"] = context["RandomSessionKey"][:16]
+
+
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_compute_lm_v2_response\(
 def ntlm_compute_lm_v2_response(context):
 	NtlmV2Hash = ntlm_compute_ntlm_v2_hash(context)
