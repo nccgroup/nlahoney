@@ -21,15 +21,47 @@ import unittest
 from md4 import MD4
 
 
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm.h
 MESSAGE_TYPE_NEGOTIATE = 1
 MESSAGE_TYPE_CHALLENGE = 2
 MESSAGE_TYPE_AUTHENTICATE = 3
+NTLMSSP_NEGOTIATE_56 = 0x80000000	# W   (0)
+NTLMSSP_NEGOTIATE_KEY_EXCH = 0x40000000	# V   (1)
+NTLMSSP_NEGOTIATE_128 = 0x20000000	# U   (2)
+NTLMSSP_RESERVED1 = 0x10000000	# r1  (3)
+NTLMSSP_RESERVED2 = 0x08000000	# r2  (4)
+NTLMSSP_RESERVED3 = 0x04000000	# r3  (5)
+NTLMSSP_NEGOTIATE_VERSION = 0x02000000	# T   (6)
+NTLMSSP_RESERVED4 = 0x01000000	# r4  (7)
+NTLMSSP_NEGOTIATE_TARGET_INFO = 0x00800000	# S   (8)
+NTLMSSP_REQUEST_NON_NT_SESSION_KEY = 0x00400000	# R   (9)
+NTLMSSP_RESERVED5 = 0x00200000	# r5  (10)
+NTLMSSP_NEGOTIATE_IDENTIFY = 0x00100000	# Q   (11)
+NTLMSSP_NEGOTIATE_EXTENDED_SESSION_SECURITY = 0x00080000	# P   (12)
+NTLMSSP_RESERVED6 = 0x00040000	# r6  (13)
+NTLMSSP_TARGET_TYPE_SERVER = 0x00020000	# O   (14)
+NTLMSSP_TARGET_TYPE_DOMAIN = 0x00010000	# N   (15)
+NTLMSSP_NEGOTIATE_ALWAYS_SIGN = 0x00008000	# M   (16)
+NTLMSSP_RESERVED7 = 0x00004000	# r7  (17)
+NTLMSSP_NEGOTIATE_WORKSTATION_SUPPLIED = 0x00002000	# L   (18)
+NTLMSSP_NEGOTIATE_DOMAIN_SUPPLIED = 0x00001000	# K   (19)
+NTLMSSP_NEGOTIATE_ANONYMOUS = 0x00000800	# J   (20)
+NTLMSSP_RESERVED8 = 0x00000400	# r8  (21)
+NTLMSSP_NEGOTIATE_NTLM = 0x00000200	# H   (22)
+NTLMSSP_RESERVED9 = 0x00000100	# r9  (23)
+NTLMSSP_NEGOTIATE_LM_KEY = 0x00000080	# G   (24)
+NTLMSSP_NEGOTIATE_DATAGRAM = 0x00000040	# F   (25)
+NTLMSSP_NEGOTIATE_SEAL = 0x00000020	# E   (26)
+NTLMSSP_NEGOTIATE_SIGN = 0x00000010	# D   (27)
+NTLMSSP_RESERVED10 = 0x00000008	# r10 (28)
+NTLMSSP_REQUEST_TARGET = 0x00000004	# C   (29)
+NTLMSSP_NEGOTIATE_OEM = 0x00000002	# B   (30)
+NTLMSSP_NEGOTIATE_UNICODE = 0x00000001	# A   (31)
+MSV_AV_FLAGS_AUTHENTICATION_CONSTRAINED = 0x00000001
 MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK = 0x00000002
-NTLMSSP_NEGOTIATE_UNICODE = 0x00000001
-NTLMSSP_NEGOTIATE_NTLM = 0x00000200
-NTLMSSP_NEGOTIATE_VERSION = 0x02000000
-NTLMSSP_NEGOTIATE_KEY_EXCH = 0x40000000
-NTLMSSP_REQUEST_TARGET = 0x00000004
+MSV_AV_FLAGS_TARGET_SPN_UNTRUSTED_SOURCE = 0x00000004
+
+MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK = 0x00000002
 SSPI_CREDENTIALS_HASH_LENGTH_OFFSET = 512
 UINT32_MAX = 0xffffffff
 
@@ -108,7 +140,7 @@ def ntlm_read_message_fields_buffer(s, fields):
 
 def checkHeaderandGetType(s):
 	header = Stream_Read(s, 8)
-	assert header[0:7] == b"NTLMSSP"
+	assert header == b"NTLMSSP\x00"
 	type = Stream_Read_UINT32(s)
 	return type
 
@@ -172,60 +204,6 @@ def ntlm_read_NegotiateMessage(context, s):
 
 	context["NegotiateMessage"] = s.read()
 	return message
-
-
-#
-def parseChallenge(session, dir):
-	strFile = dir + "/" + str(session) + ".ChallengeOut.bin"
-	print(f"[i] ** Parsing {strFile}")
-
-	streamindex = 0
-
-	s = open(strFile, 'rb')
-
-	ret = checkHeaderandGetType(s)
-	assert ret == MESSAGE_TYPE_CHALLENGE
-
-	# Target Name
-	tnlen, tnmaxlen, tnbufferoffset = streamReadNTLMMessageField(s)
-	print(f"[i] Target Name Length: {tnlen} at {tnbufferoffset}")
-
-	# Negotiate Flags
-	NegotiateFlags = Stream_Read_UINT32(s)
-	print("[i] Got Negotiate flags")
-
-	challenge = Stream_Read(s, 8)
-	print("[i] Got Servers challenge {binascii.hexlify(challenge))}")
-
-	__ = Stream_Read(s, 8)
-	print("[i] Skipped reserved")
-
-	# Target Info
-	tilen, timaxlen, tibufferoffset = streamReadNTLMMessageField(s)
-	print(f"[i] Target Info Length: {tilen} at {tibufferoffset}")
-
-	if NegotiateFlags & NTLMSSP_NEGOTIATE_VERSION:
-		# Product Version
-		negotiateProductMajorVersion = Stream_Read_UINT8(s)
-		negotiateProductMinorVersion = Stream_Read_UINT8(s)
-		negotiateProductProductBuild = Stream_Read_UINT16(s)
-		__ = Stream_Read_UINT8(s) # Skip reserved byte
-		negotiateNTLMRevisionCurrent = Stream_Read_UINT8(s)
-		print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
-
-	# Target Name
-	if NegotiateFlags & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
-		s.seek(tnbufferoffset)
-		targetname = Stream_Read(s, tnlen)
-		print(f"[i] Got Target Name {targetname}")
-
-	# Target Info - maybe parse this?
-	if NegotiateFlags & 0x00800000 :	# NTLMSSP_NEGOTIATE_TARGET_INFO
-		s.seek(tibufferoffset)
-		targetinfo = Stream_Read(s, tilen)
-		print("[i] Got Target Info {binascii.hexlify(targetinfo)}")
-
-	return challenge, targetname, targetinfo
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_ChallengeMessage\(
@@ -292,6 +270,79 @@ def ntlm_read_ChallengeMessage(context, s):
 	# TODO? if WITH_DEBUG_NTLM:
 
 	context["state"] = NTLM_STATE_AUTHENTICATE
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_write_ChallengeMessage\(
+def ntlm_unwrite_ChallengeMessage(context, s):
+	"""
+	This function "unwrites" (reads) `s` back into `context`.
+	`ntlm_write_ChallengeMessage` first reads from `context`, then writes into `s`.
+	This function first reads from `s`, then writes into `context`.
+	"""
+	message = {}
+
+	# First read ChallengeMessage from `s`
+
+	# Message Header (12 bytes)
+	ret = checkHeaderandGetType(s)
+	assert ret == MESSAGE_TYPE_CHALLENGE
+
+	# TargetNameFields (8 bytes)
+	message["TargetName"] = ntlm_read_message_fields(s)
+	print(f"[i] Target Name Length: {message['TargetName']['Len']} at {message['TargetName']['BufferOffset']}")
+
+	# NegotiateFlags (4 bytes)
+	message["NegotiateFlags"] = Stream_Read_UINT32(s)
+	print("[i] Got Negotiate flags")
+
+	# ServerChallenge (8 bytes)
+	message["ServerChallenge"] = Stream_Read(s, 8)
+	print("[i] Got Servers challenge {binascii.hexlify(challenge))}")
+
+	# Reserved (8 bytes), should be ignored
+	message["Reserved"] = Stream_Read(s, 8)
+	print("[i] Skipped reserved")
+
+	# TargetInfoFields (8 bytes)
+	message["TargetInfo"] = ntlm_read_message_fields(s)
+	print(f"[i] Target Info Length: {message['TargetInfo']['Len']} at {message['TargetInfo']['BufferOffset']}")
+
+	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
+		# Version (8 bytes)
+		message["Version"] = ntlm_read_version_info(s)
+
+	# Payload (variable)
+
+	if message["NegotiateFlags"] & NTLMSSP_REQUEST_TARGET:
+		ntlm_read_message_fields_buffer(s, message["TargetName"])
+
+		# Product Version
+		negotiateProductMajorVersion = Stream_Read_UINT8(s)
+		negotiateProductMinorVersion = Stream_Read_UINT8(s)
+		negotiateProductProductBuild = Stream_Read_UINT16(s)
+		__ = Stream_Read_UINT8(s) # Skip reserved byte
+		negotiateNTLMRevisionCurrent = Stream_Read_UINT8(s)
+		print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
+
+	# Target Name
+	if message["NegotiateFlags"] & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
+		s.seek(message["TargetName"]["BufferOffset"])
+		targetname = Stream_Read(s, message["TargetName"]["Len"])
+		print(f"[i] Got Target Name {targetname}")
+
+	# Target Info - maybe parse this?
+	if message["NegotiateFlags"] & 0x00800000 :	# NTLMSSP_NEGOTIATE_TARGET_INFO
+		s.seek(message["TargetInfo"]["BufferOffset"])
+		targetinfo = Stream_Read(s, message["TargetInfo"]["Len"])
+		print("[i] Got Target Info {binascii.hexlify(targetinfo)}")
+
+	# Finished reading from `s`. Time to write back to `context`.
+
+	context["NegotiateFlags"] = message["NegotiateFlags"]
+	context["ServerChallenge"] = message["ServerChallenge"]
+	context["CHALLENGE_MESSAGE"] = message
+
+	return message
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_generate_random_session_key\(
@@ -697,15 +748,17 @@ def parsefiles(session, dir):
 	with open(f"{dir}/{session}.NegotiateIn.bin", "rb") as s:
 		ntlm_read_NegotiateMessage(context, s)
 
-	context["ServerChallenge"], targetname, targetinfo = parseChallenge(session,dir)
+	print(f"[i] ** Parsing Server Challenge for session {session}")
+	with open(f"{dir}/{session}.ChallengeOut.bin", 'rb') as s:
+		ntlm_unwrite_ChallengeMessage(context, s)
 
 	print(f"[i] ** Parsing Client Challenge for session {session}")
-	with open(f"{dir}/{session}.ChallengeIn.bin", 'rb') as file:
-		ntlm_read_ChallengeMessage(context, file)
+	with open(f"{dir}/{session}.ChallengeIn.bin", 'rb') as s:
+		ntlm_read_ChallengeMessage(context, s)
 
 	print(f"[i] ** Parsing Authenticate for session {session}")
-	with open(f"{dir}/{session}.AuthenticateIn.bin", 'rb') as file:
-		ntlm_read_AuthenticateMessage(context, file)
+	with open(f"{dir}/{session}.AuthenticateIn.bin", 'rb') as s:
+		ntlm_read_AuthenticateMessage(context, s)
 
 	# We do some calculations
 	success = ntlm_server_AuthenticateComplete(context)
