@@ -541,17 +541,38 @@ def ntlm_decrypt_random_session_key(context):
 	#		Set RandomSessionKey to RC4K(KeyExchangeKey,
 	# AUTHENTICATE_MESSAGE.EncryptedRandomSessionKey) else Set RandomSessionKey to KeyExchangeKey
 	if context["NegotiateKeyExchange"]:
-		ntlm_rc4k(context["KeyExchangeKey"], 16, context["EncryptedRandomSessionKey"], context["RandomSessionKey"])
+		context["RandomSessionKey"] = ntlm_rc4k(context["KeyExchangeKey"], context["EncryptedRandomSessionKey"])
 	else:
 		context["RandomSessionKey"] = context["KeyExchangeKey"][:16]
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_rc4k\(
-def ntlm_rc4k(key, length, plaintext, ciphertext):
+def ntlm_rc4k(key, plaintext):
 	"""Encrypt the given plain text using RC4 and the given key."""
-	rc4 = winpr_RC4_New(key, 16)
-	if rc4:
-		winpr_RC4_Update(rc4, length, plaintext, ciphertext)
+	assert len(key) == 16
+
+	# https://github.com/g2jun/RC4-Python/blob/51ad9391cb0101e1b7b9ebc02f30359e892fc068/RC4.py#L88-L112
+	cipherList = []
+
+	keyLen = len(key)
+	plainLen = len(plaintext)
+	S = list(range(256))
+
+	j = 0
+	for i in range(256):
+		j = (j + S[i] + key[i % keyLen]) % 256
+		S[i], S[j] = S[j], S[i]
+
+	i = 0
+	j = 0
+	for m in range(plainLen):
+		i = (i + 1) % 256
+		j = (j + S[i]) % 256
+		S[i], S[j] = S[j], S[i]
+		k = S[(S[i] + S[j]) % 256]
+		cipherList.append(k ^ plaintext[m])
+
+	return cipherList
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_compute_lm_v2_response\(
