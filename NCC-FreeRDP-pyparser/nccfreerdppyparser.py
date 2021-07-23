@@ -13,6 +13,7 @@ import hmac
 import io
 import os
 import pprint
+import secrets
 import struct
 import sys
 import unittest
@@ -276,7 +277,7 @@ def ntlm_read_ChallengeMessage(context, s):
 
 	# TODO?
 #	ntlm_generate_key_exchange_key(context)	# KeyExchangeKey
-#	ntlm_generate_random_session_key(context)	# RandomSessionKey
+	ntlm_generate_random_session_key(context)	# RandomSessionKey
 #	ntlm_generate_exported_session_key(context)	# ExportedSessionKey
 #	ntlm_encrypt_random_session_key(context)	# EncryptedRandomSessionKey
 #	# Generate signing keys
@@ -291,6 +292,12 @@ def ntlm_read_ChallengeMessage(context, s):
 	# TODO? if WITH_DEBUG_NTLM:
 
 	context["state"] = NTLM_STATE_AUTHENTICATE
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_generate_random_session_key\(
+def ntlm_generate_random_session_key(context):
+	"""Generate RandomSessionKey (16-byte nonce)."""
+	context["RandomSessionKey"] = secrets.token_bytes(16)
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_AuthenticateMessage\(
@@ -426,18 +433,74 @@ def ntlm_read_version_info(s):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_server_AuthenticateComplete\(
 def ntlm_server_AuthenticateComplete(context):
-	if ntlm_compute_lm_v2_response(context) == False:
-		print("ntlm_server_AuthenticateComplete: ntlm_compute_lm_v2_response failed")
-		return False
-	if ntlm_compute_ntlm_v2_response(context) == False:
-		print("ntlm_server_AuthenticateComplete: ntlm_compute_ntlm_v2_response failed")
-		return False
-	ourmic = ntlm_compute_message_integrity_check(context)
-	if ourmic == False:
-		print("ntlm_server_AuthenticateComplete: ntlm_compute_message_integrity_check failed")
-		return False
-	mic = context['AuthenticateMessage']['MessageIntegrityCheck']
-	return ourmic == mic
+	assert context
+	# assert context["state"] == NTLM_STATE_COMPLETION
+
+	message = context["AUTHENTICATE_MESSAGE"]
+	AvFlags = ntlm_av_pair_get(context["NTLMv2Response"]["Challenge"]["AvPairs"], MsvAvFlags)
+
+	if AvFlags:
+		flags = AvFlags
+
+	# LmChallengeResponse
+	assert ntlm_compute_lm_v2_response(context)
+	# NtChallengeResponse
+	assert ntlm_compute_ntlm_v2_response(context)
+
+	# KeyExchangeKey
+	ntlm_generate_key_exchange_key(context)
+	# EncryptedRandomSessionKey
+	ntlm_decrypt_random_session_key(context)
+	# ExportedSessionKey
+	ntlm_generate_exported_session_key(context)
+
+	if flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK:
+		ourmic = ntlm_compute_message_integrity_check(context)
+		if ourmic == False:
+			print("ntlm_server_AuthenticateComplete: ntlm_compute_message_integrity_check failed")
+			return False
+		mic = context['AuthenticateMessage']['MessageIntegrityCheck']
+		return ourmic == mic
+	else:
+		"""
+		no mic message was present
+
+		https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/f9e6fbc4-a953-4f24-b229-ccdcc213b9ec
+		the mic is optional, as not supported in Windows NT, Windows 2000, Windows XP, and
+		Windows Server 2003 and, as it seems, in the NTLMv2 implementation of Qt5.
+
+		now check the NtProofString, to detect if the entered client password matches the
+		expected password.
+		"""
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_generate_key_exchange_key\(
+def ntlm_generate_key_exchange_key(context):
+	# In NTLMv2, KeyExchangeKey is the 128-bit SessionBaseKey
+	context["KeyExchangeKey"] = context["SessionBaseKey"][:16]
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_decrypt_random_session_key\(
+def ntlm_decrypt_random_session_key(context):
+	"""Decrypt RandomSessionKey (RC4-encrypted RandomSessionKey, using KeyExchangeKey as the key)."""
+	# In NTLMv2, EncryptedRandomSessionKey is the ExportedSessionKey RC4-encrypted with the
+	# KeyExchangeKey
+
+	#	if (NegotiateFlags & NTLMSSP_NEGOTIATE_KEY_EXCH)
+	#		Set RandomSessionKey to RC4K(KeyExchangeKey,
+	# AUTHENTICATE_MESSAGE.EncryptedRandomSessionKey) else Set RandomSessionKey to KeyExchangeKey
+	if context["NegotiateKeyExchange"]:
+		ntlm_rc4k(context["KeyExchangeKey"], 16, context["EncryptedRandomSessionKey"], context["RandomSessionKey"])
+	else:
+		context["RandomSessionKey"] = context["KeyExchangeKey"][:16]
+
+
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_rc4k\(
+def ntlm_rc4k(key, length, plaintext, ciphertext):
+	"""Encrypt the given plain text using RC4 and the given key."""
+	rc4 = winpr_RC4_New(key, 16)
+	if rc4:
+		winpr_RC4_Update(rc4, length, plaintext, ciphertext)
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_compute_lm_v2_response\(
@@ -631,9 +694,7 @@ def parsefiles(session, dir):
 
 	# We parse the files
 	print(f"[i] ** Parsing Client Negotiate for session {session}")
-	strFile = dir +"/" + str(session) + ".NegotiateIn.bin"
-	print(f"[i] ** Parsing {strFile}")
-	with open(strFile, "rb") as s:
+	with open(f"{dir}/{session}.NegotiateIn.bin", "rb") as s:
 		ntlm_read_NegotiateMessage(context, s)
 
 	context["ServerChallenge"], targetname, targetinfo = parseChallenge(session,dir)
