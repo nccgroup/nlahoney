@@ -731,7 +731,7 @@ def ntlm_compute_message_integrity_check(context):
 	msg += context["ChallengeMessage"]	# this is from us
 	msg += context["AuthenticateMessage"]
 	# mic is the output
-	mic = winpr_HMAC(hashlib.md5, context["ExportedSessionKey"])
+	mic = winpr_HMAC(hashlib.md5, context["ExportedSessionKey"], msg)
 	return mic
 
 
