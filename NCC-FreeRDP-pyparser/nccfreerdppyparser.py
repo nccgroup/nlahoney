@@ -255,7 +255,7 @@ def ntlm_read_ChallengeMessage(context, s):
 
 	# TODO?
 #	ntlm_generate_key_exchange_key(context)	# KeyExchangeKey
-	ntlm_generate_random_session_key(context)	# RandomSessionKey
+#	ntlm_generate_random_session_key(context)	# RandomSessionKey
 #	ntlm_generate_exported_session_key(context)	# ExportedSessionKey
 #	ntlm_encrypt_random_session_key(context)	# EncryptedRandomSessionKey
 #	# Generate signing keys
@@ -572,7 +572,7 @@ def ntlm_rc4k(key, plaintext):
 		k = S[(S[i] + S[j]) % 256]
 		cipherList.append(k ^ plaintext[m])
 
-	return cipherList
+	return bytes(cipherList)
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_generate_exported_session_key\(
