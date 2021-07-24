@@ -302,6 +302,11 @@ void winpr_HMAC_Free(WINPR_HMAC_CTX* ctx)
 BOOL winpr_HMAC(WINPR_MD_TYPE md, const BYTE* key, size_t keylen, const BYTE* input, size_t ilen,
                 BYTE* output, size_t olen)
 {
+	const char filename[] = "/tmp/winpr_HMAC";
+	FILE *outFile = fopen(filename,"a");
+	int len, wroteOut = 0;
+	unsigned char *p;
+
 	BOOL result = FALSE;
 	WINPR_HMAC_CTX* ctx = winpr_HMAC_New();
 
@@ -319,6 +324,22 @@ BOOL winpr_HMAC(WINPR_MD_TYPE md, const BYTE* key, size_t keylen, const BYTE* in
 
 	result = TRUE;
 out:
+	p = key;
+	len = keylen;
+	wroteOut += fprintf(outFile, "key[%d]: \"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
+	p = input;
+	len = ilen;
+	wroteOut += fprintf(outFile, "\"\ninput[%d]: \"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
+	p = output;
+	len = olen;
+	wroteOut += fprintf(outFile, "\"\noutput[%d]: \"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
+	wroteOut += fprintf(outFile, "\"\n");
+	fclose(outFile);
+	fprintf(stdout,"[HONEY] Wrote %d to %s\n", wroteOut, filename);
+
 	winpr_HMAC_Free(ctx);
 	return result;
 }

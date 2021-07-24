@@ -686,6 +686,15 @@ def winpr_HMAC(digest, key, msg):
 	return hmac.digest(key, msg, digest)
 
 
+def test_winpr_HMAC():
+	digest = hashlib.md5
+	key = b"\xa3\x06\x37\x10\x10\xc4\x39\xfe\xc3\x97\xec\x2b\x83\x66\x17\x17"
+	msg = b"\x4d\xfc\x83\xb0\x86\x54\xe0\xa1\x00\x71\x60\x67\xce\x62\xa8\x19"
+	expected = b"\xdb\x08\x36\xab\xdb\x3f\xab\x8a\x03\x7c\x48\x4e\x89\xeb\xbe\x7f"
+	actual = winpr_HMAC(digest, key, msg)
+	assert expected == actual
+
+
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_compute_ntlm_v2_response\(
 def ntlm_compute_ntlm_v2_response(context):
 	TargetInfo = context["ChallengeTargetInfo"]
@@ -808,6 +817,7 @@ def parsefiles(session, dir):
 
 
 if __name__ == "__main__":
+	test_winpr_HMAC()
 	test_ntlm_compute_message_integrity_check()
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-d","--dir", help="directory containing dumps", default="dump")
