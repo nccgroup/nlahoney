@@ -811,9 +811,9 @@ def parsefiles(session, dir):
 
 	# We do some calculations
 	success = ntlm_server_AuthenticateComplete(context)
-	workstation = context['AUTHENTICATE_MESSAGE']['Workstation']['Buffer']
-	domain = context['AUTHENTICATE_MESSAGE']['DomainName']['Buffer']
-	user = context['AUTHENTICATE_MESSAGE']['UserName']['Buffer']
+	workstation = context['AUTHENTICATE_MESSAGE']['Workstation']['Buffer'].decode('utf-16le')
+	domain = context['AUTHENTICATE_MESSAGE']['DomainName']['Buffer'].decode('utf-16le')
+	user = context['AUTHENTICATE_MESSAGE']['UserName']['Buffer'].decode('utf-16le')
 	if success:
 		print(f"[*] Attacker from {workstation} using {domain}\\{user} with {'FUTURE password'}")
 	else:
