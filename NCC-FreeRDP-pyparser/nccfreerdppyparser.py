@@ -153,8 +153,6 @@ def ntlm_av_pair_get(pAvPairList, AvId):
 			avlen =  Stream_Read_UINT16(avpairlist)
 
 			if avid == AvId:
-				print(f"[i] Matched AV ID type - it is {avlen} bytes long")
-
 				if avid == MsvAvFlags:
 					return Stream_Read_UINT32(avpairlist)
 				elif avid == MsvAvTimestamp:
@@ -503,9 +501,8 @@ def ntlm_server_AuthenticateComplete(context):
 	ntlm_generate_exported_session_key(context)
 
 	if flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK:
-		ourmic = ntlm_compute_message_integrity_check(context)
 		mic = context["AUTHENTICATE_MESSAGE"]["MessageIntegrityCheck"]
-		print(f"mic={binascii.hexlify(mic)}\nour={binascii.hexlify(ourmic)}")
+		ourmic = ntlm_compute_message_integrity_check(context)
 		return ourmic == mic
 	else:
 		"""
@@ -779,11 +776,7 @@ def parsefiles(session, dir):
 	# Add static credentials for use with calculating hash
 	# TODO: use dictionary
 	context["credentials"] = {}
-	context["credentials"]["identity"] = {
-		"Domain": "domain".encode('utf-16le'),
-		"Password": "password".encode('utf-16le'),
-		"User": "username".encode('utf-16le'),
-	}
+	context["credentials"]["identity"] = {}
 
 	# We parse the files
 	print(f"[i] ** Parsing Client Negotiate for session {session}")
@@ -804,13 +797,23 @@ def parsefiles(session, dir):
 	with open(f"{dir}/{session}.AuthenticateOut.bin", 'rb') as s:
 		context["AuthenticateMessage"] = s.read()
 
-	# We do some calculations
-	success = ntlm_server_AuthenticateComplete(context)
-	workstation = context['AUTHENTICATE_MESSAGE']['Workstation']['Buffer'].decode('utf-16le')
-	domain = context['AUTHENTICATE_MESSAGE']['DomainName']['Buffer'].decode('utf-16le')
-	user = context['AUTHENTICATE_MESSAGE']['UserName']['Buffer'].decode('utf-16le')
-	if success:
-		print(f"[*] Attacker from {workstation} using {domain}\\{user} with {'FUTURE password'}")
+	workstation = context["AUTHENTICATE_MESSAGE"]["Workstation"]["Buffer"].decode("utf-16le")
+	domain = context["AUTHENTICATE_MESSAGE"]["DomainName"]["Buffer"].decode("utf-16le")
+	user = context["AUTHENTICATE_MESSAGE"]["UserName"]["Buffer"].decode("utf-16le")
+
+	passwordList = [
+		"qwerty",
+		"password",
+		"secret",
+	]
+	for password in passwordList:
+		print(f'[!] Trying "{password}"')
+		context["credentials"]["identity"]["Password"] = password.encode("utf-16le")
+
+		# We do some calculations
+		if ntlm_server_AuthenticateComplete(context):
+			print(f'[*] Attacker from {workstation} using "{domain}\\{user}" with "{context["credentials"]["identity"]["Password"].decode("utf-16le")}"')
+			break
 	else:
 		print(f"[!] Attacker from {workstation} using {domain}\\{user} but we failed to crack the password")
 
