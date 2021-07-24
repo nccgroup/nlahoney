@@ -1191,6 +1191,34 @@ SECURITY_STATUS ntlm_server_AuthenticateComplete(NTLM_CONTEXT* context)
 		    &((PBYTE)context->AuthenticateMessage.pvBuffer)[context->MessageIntegrityCheckOffset],
 		    message->MessageIntegrityCheck, 16);
 
+	const char filename[] = "/tmp/ntlm_server_AuthenticateComplete";
+	FILE *outFile = fopen(filename,"a");
+	int len, wroteOut = 0;
+	unsigned char *p;
+	p = context->NegotiateMessage.pvBuffer;
+	len = context->NegotiateMessage.cbBuffer;
+	wroteOut += fprintf(outFile, "NegotiateMessage[%d]: b\"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
+	p = context->ChallengeMessage.pvBuffer;
+	len = context->ChallengeMessage.cbBuffer;
+	wroteOut += fprintf(outFile, "\"\nChallengeMessage[%d]: b\"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
+	p = context->AuthenticateMessage.pvBuffer;
+	len = context->AuthenticateMessage.cbBuffer;
+	wroteOut += fprintf(outFile, "\"\nAuthenticateMessage[%d]: b\"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
+	p = context->ExportedSessionKey;
+	len = sizeof context->ExportedSessionKey;
+	wroteOut += fprintf(outFile, "\"\nExportedSessionKey[%d]: b\"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
+	p = messageIntegrityCheck;
+	len = sizeof messageIntegrityCheck;
+	wroteOut += fprintf(outFile, "\"\nmessageIntegrityCheck[%d]: b\"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
+	wroteOut += fprintf(outFile, "\"\n");
+	fclose(outFile);
+	fprintf(stdout,"[HONEY] Wrote %d to %s\n", wroteOut, filename);
+
 		if (memcmp(messageIntegrityCheck, message->MessageIntegrityCheck, 16) != 0)
 		{
 			WLog_ERR(TAG, "Message Integrity Check (MIC) verification failed!");

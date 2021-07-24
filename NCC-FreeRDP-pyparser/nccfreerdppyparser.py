@@ -200,6 +200,7 @@ def ntlm_read_NegotiateMessage(context, s):
 	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
 		message["Version"] = ntlm_read_version_info(s)
 
+	s.seek(0)
 	context["NegotiateMessage"] = s.read()
 	return message
 
@@ -232,8 +233,8 @@ def ntlm_read_ChallengeMessage(context, s):
 				context["UseMIC"] = True
 
 	length = (PayloadOffset - StartOffset) + len(message["TargetName"]) + len(message["TargetInfo"])
-	s.seek(StartOffset)
-	context["ChallengeMessage"] = Stream_Read(s, length)
+	s.seek(0)
+	context["ChallengeMessage"] = s.read()
 
 	#TODO? if WITH_DEBUG_NTLM:
 
@@ -487,6 +488,7 @@ def ntlm_read_version_info(s):
 def ntlm_server_AuthenticateComplete(context):
 	assert context
 	# assert context["state"] == NTLM_STATE_COMPLETION
+	pprint.pprint(context)
 
 	message = context["AUTHENTICATE_MESSAGE"]
 	AvFlags = ntlm_av_pair_get(context["NTLMv2Response"]["Challenge"]["AvPairs"], MsvAvFlags)
