@@ -652,16 +652,7 @@ def ntlm_fetch_ntlm_v2_hash(context):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/utils/ntlm.c:/^BOOL NTOWFv2FromHashW\(
 def NTOWFv2FromHashW(NtHashV1, User, Domain):
-	"""Return V2 hash from V1 hash, user, and domain.
-
-	>>> NTOWFv2FromHashW(
-	...	 b'\x88\x46\xf7\xea\xee\x8f\xb1\x17\xad\x06\xbd\xd8\x30\xb7\x58\x6c',
-	...	 'username'.encode('utf-16le'),
-	...	 'domain'.encode('utf-16le')
-	...	 ) == b'\xa3\x06\x37\x10\x10\xc4\x39\xfe\xc3\x97\xec\x2b\x83\x66\x17\x17'
-	True
-	"""
-
+	"""Return V2 hash from V1 hash, user, and domain."""
 	# Concatenate(UpperCase(User), Domain)
 	buffer = User.upper() + Domain
 
@@ -669,6 +660,15 @@ def NTOWFv2FromHashW(NtHashV1, User, Domain):
 	# the NTLMv2 hash
 	NtHash = winpr_HMAC(hashlib.md5, NtHashV1, buffer)
 	return NtHash
+
+
+def test_NTOWFv2FromHashW():
+	NtHashV1 = b"\x88\x46\xf7\xea\xee\x8f\xb1\x17\xad\x06\xbd\xd8\x30\xb7\x58\x6c"
+	User = "username".encode("utf-16le")
+	Domain = "domain".encode("utf-16le")
+	expected = b"\xa3\x06\x37\x10\x10\xc4\x39\xfe\xc3\x97\xec\x2b\x83\x66\x17\x17"
+	actual = NTOWFv2FromHashW(NtHashV1, User, Domain)
+	assert expected == actual
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/utils/ntlm.c:/^BOOL NTOWFv2W\(
@@ -820,6 +820,7 @@ def parsefiles(session, dir):
 
 
 if __name__ == "__main__":
+	test_NTOWFv2FromHashW()
 	test_winpr_HMAC()
 	test_ntlm_compute_message_integrity_check()
 	parser = argparse.ArgumentParser()
