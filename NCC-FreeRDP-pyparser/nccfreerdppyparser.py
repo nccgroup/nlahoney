@@ -333,7 +333,7 @@ def ntlm_unwrite_ChallengeMessage(context, s):
 	if message["NegotiateFlags"] & 0x00800000 :	# NTLMSSP_NEGOTIATE_TARGET_INFO
 		s.seek(message["TargetInfo"]["BufferOffset"])
 		targetinfo = Stream_Read(s, message["TargetInfo"]["Len"])
-		print("[i] Got Target Info {binascii.hexlify(targetinfo)}")
+		print(f"[i] Got Target Info {binascii.hexlify(targetinfo)}")
 
 	# Finished reading from `s`. Time to write back to `context`.
 
@@ -396,11 +396,11 @@ def ntlm_read_AuthenticateMessage(context, s):
 	PayloadBufferOffset = s.tell()
 
 	ntlm_read_message_fields_buffer(s, message["DomainName"])
-	print(f"[i] Got DomainName {message['DomainName']['Buffer']}")
+	print(f"[i] Got DomainName {message['DomainName']['Buffer'].decode('utf-16le')}")
 	ntlm_read_message_fields_buffer(s, message["UserName"])
-	print(f"[i] Got UserName {message['UserName']['Buffer']}")
+	print(f"[i] Got UserName {message['UserName']['Buffer'].decode('utf-16le')}")
 	ntlm_read_message_fields_buffer(s, message["Workstation"])
-	print(f"[i] Got Workstation {message['Workstation']['Buffer']}")
+	print(f"[i] Got Workstation {message['Workstation']['Buffer'].decode('utf-16le')}")
 	ntlm_read_message_fields_buffer(s, message["LmChallengeResponse"])
 	print(f"[i] LmChallengeResponse Length: {message['LmChallengeResponse']['Len']} at {message['LmChallengeResponse']['BufferOffset']}")
 	ntlm_read_message_fields_buffer(s, message["NtChallengeResponse"])
