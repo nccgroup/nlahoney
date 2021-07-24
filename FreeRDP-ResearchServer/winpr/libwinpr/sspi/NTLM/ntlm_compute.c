@@ -834,32 +834,33 @@ void ntlm_compute_message_integrity_check(NTLM_CONTEXT* context, BYTE* mic, UINT
 
 	}
 
-	FILE *outFile = fopen("/tmp/ntlm_compute_message_integrity_check","a");
+	const char filename[] = "/tmp/ntlm_compute_message_integrity_check";
+	FILE *outFile = fopen(filename,"a");
 	int len, wroteOut = 0;
 	unsigned char *p;
 	p = context->NegotiateMessage.pvBuffer;
 	len = context->NegotiateMessage.cbBuffer;
-	wroteOut += fprintf(outFile, "\nNegotiateMessage[%d]:", len);
-	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, " %02x", p[i]);
+	wroteOut += fprintf(outFile, "NegotiateMessage[%d]: b\"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
 	p = context->ChallengeMessage.pvBuffer;
 	len = context->ChallengeMessage.cbBuffer;
-	wroteOut += fprintf(outFile, "\nChallengeMessage[%d]:", len);
-	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, " %02x", p[i]);
+	wroteOut += fprintf(outFile, "\"\nChallengeMessage[%d]: b\"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
 	p = context->AuthenticateMessage.pvBuffer;
 	len = context->AuthenticateMessage.cbBuffer;
-	wroteOut += fprintf(outFile, "\nAuthenticateMessage[%d]:", len);
-	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, " %02x", p[i]);
+	wroteOut += fprintf(outFile, "\"\nAuthenticateMessage[%d]: b\"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
 	p = context->ExportedSessionKey;
 	len = sizeof context->ExportedSessionKey;
-	wroteOut += fprintf(outFile, "\nExportedSessionKey[%d]:", len);
-	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, " %02x", p[i]);
+	wroteOut += fprintf(outFile, "\"\nExportedSessionKey[%d]: b\"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
 	p = mic;
 	len = WINPR_MD5_DIGEST_LENGTH;
-	wroteOut += fprintf(outFile, "\nMIC[%d]:", len);
-	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, " %02x", p[i]);
-	wroteOut += fprintf(outFile, "\n");
+	wroteOut += fprintf(outFile, "\"\nMIC[%d]: b\"", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, "\\x%02x", p[i]);
+	wroteOut += fprintf(outFile, "\"\n");
 	fclose(outFile);
-	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,"/tmp/ntlm_compute_message_integrity_check");
+	fprintf(stdout,"[HONEY] Wrote %u to %s\n", wroteOut, filename);
 
 	winpr_HMAC_Free(hmac);
 }
