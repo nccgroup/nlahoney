@@ -511,7 +511,7 @@ def ntlm_server_AuthenticateComplete(context):
 		ourmic = ntlm_compute_message_integrity_check(context)
 		mic = context["AUTHENTICATE_MESSAGE"]["MessageIntegrityCheck"]
 		print(f"mic={binascii.hexlify(mic)}\nour={binascii.hexlify(ourmic)}")
-		assert ourmic == mic
+		return ourmic == mic
 	else:
 		"""
 		no mic message was present
@@ -523,6 +523,7 @@ def ntlm_server_AuthenticateComplete(context):
 		now check the NtProofString, to detect if the entered client password matches the
 		expected password.
 		"""
+		return False
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_generate_key_exchange_key\(
