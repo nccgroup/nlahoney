@@ -526,44 +526,6 @@ exit:
 	sspi_SecBufferFree(&ntlm_v2_temp);
 	sspi_SecBufferFree(&ntlm_v2_temp_chal);
 
-	FILE *outFile = fopen("/tmp/ntlm_compute_ntlm_v2_response","a");
-	size_t wroteOut = 0;
-
-	&context->ChallengeTargetInfo
-	(BYTE*)context->NtlmV2Hash
-	CopyMemory(&blob[8], context->Timestamp, 8);        /* Timestamp (8 bytes) */
-	CopyMemory(&blob[16], context->ClientChallenge, 8); /* ClientChallenge (8 bytes) */
-	CopyMemory(blob, context->ServerChallenge, 8);
-	(BYTE*)context->NtlmV2Hash, WINPR_MD5_DIGEST_LENGTH
-	context->NtProofString, WINPR_MD5_DIGEST_LENGTH
-	context->NtChallengeResponse, ntlm_v2_temp.cbBuffer + 16
-	(BYTE*)context->NtlmV2Hash, WINPR_MD5_DIGEST_LENGTH,
-	context->NtProofString, WINPR_MD5_DIGEST_LENGTH
-	context->SessionBaseKey, WINPR_MD5_DIGEST_LENGTH
-
-	wroteOut += fprintf(outFile, "NtHashV1[16]:");
-	for(int i = 0; i < 16; i++)
-		wroteOut += fprintf(outFile, " %02x", NtHashV1[i]);
-	wroteOut += fprintf(outFile, "\n");
-	wroteOut += fprintf(outFile, "User[%d]:", (int)UserLength);
-	for(int i = 0; i < UserLength/2; i++)
-		wroteOut += fprintf(outFile, " %02x", User[i]);
-	wroteOut += fprintf(outFile, "\n");
-	wroteOut += fprintf(outFile, "Domain[%d]:", (int)DomainLength);
-	for(int i = 0; i < DomainLength/2; i++)
-		wroteOut += fprintf(outFile, " %02x", Domain[i]);
-	wroteOut += fprintf(outFile, "\n");
-	wroteOut += fprintf(outFile, "buffer[%d]:", (int)(UserLength + DomainLength));
-	for(UINT32 i = 0; i < UserLength + DomainLength; i++)
-		wroteOut += fprintf(outFile, " %02x", buffer[i]);
-	wroteOut += fprintf(outFile, "\n");
-	wroteOut += fprintf(outFile, "NtHash[%d]:", (int)WINPR_MD5_DIGEST_LENGTH);
-	for(int i = 0; i < WINPR_MD5_DIGEST_LENGTH; i++)
-		wroteOut += fprintf(outFile, " %02x", NtHash[i]);
-	wroteOut += fprintf(outFile, "\n");
-	fclose(outFile);
-	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,"/tmp/ntlm_compute_ntlm_v2_response");
-
 	WLog_INFO(TAG,"[HONEY] RET ntlm_compute_ntlm_v2_response");
 
 	return ret;
@@ -871,6 +833,33 @@ void ntlm_compute_message_integrity_check(NTLM_CONTEXT* context, BYTE* mic, UINT
 
 
 	}
+
+	FILE *outFile = fopen("/tmp/ntlm_compute_message_integrity_check","a");
+	int len, wroteOut = 0;
+	unsigned char *p;
+	p = context->NegotiateMessage.pvBuffer;
+	len = context->NegotiateMessage.cbBuffer;
+	wroteOut += fprintf(outFile, "\nNegotiateMessage[%d]:", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, " %02x", p[i]);
+	p = context->ChallengeMessage.pvBuffer;
+	len = context->ChallengeMessage.cbBuffer;
+	wroteOut += fprintf(outFile, "\nChallengeMessage[%d]:", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, " %02x", p[i]);
+	p = context->AuthenticateMessage.pvBuffer;
+	len = context->AuthenticateMessage.cbBuffer;
+	wroteOut += fprintf(outFile, "\nAuthenticateMessage[%d]:", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, " %02x", p[i]);
+	p = context->ExportedSessionKey;
+	len = sizeof context->ExportedSessionKey;
+	wroteOut += fprintf(outFile, "\nExportedSessionKey[%d]:", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, " %02x", p[i]);
+	p = mic;
+	len = WINPR_MD5_DIGEST_LENGTH;
+	wroteOut += fprintf(outFile, "\nMIC[%d]:", len);
+	for(int i = 0; i < len; i++) wroteOut += fprintf(outFile, " %02x", p[i]);
+	wroteOut += fprintf(outFile, "\n");
+	fclose(outFile);
+	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,"/tmp/ntlm_compute_message_integrity_check");
 
 	winpr_HMAC_Free(hmac);
 }
