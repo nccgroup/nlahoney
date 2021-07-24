@@ -507,11 +507,9 @@ def ntlm_server_AuthenticateComplete(context):
 
 	if flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK:
 		ourmic = ntlm_compute_message_integrity_check(context)
-		if ourmic == False:
-			print("ntlm_server_AuthenticateComplete: ntlm_compute_message_integrity_check failed")
-			return False
-		mic = context['AuthenticateMessage']
-		return ourmic == mic
+		mic = context["AUTHENTICATE_MESSAGE"]["MessageIntegrityCheck"]
+		print(f"mic={binascii.hexlify(mic)}\nour={binascii.hexlify(ourmic)}")
+		assert ourmic == mic
 	else:
 		"""
 		no mic message was present
