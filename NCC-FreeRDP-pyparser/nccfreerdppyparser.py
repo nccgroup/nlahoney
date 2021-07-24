@@ -488,7 +488,6 @@ def ntlm_read_version_info(s):
 def ntlm_server_AuthenticateComplete(context):
 	assert context
 	# assert context["state"] == NTLM_STATE_COMPLETION
-	pprint.pprint(context)
 
 	message = context["AUTHENTICATE_MESSAGE"]
 	AvFlags = ntlm_av_pair_get(context["NTLMv2Response"]["Challenge"]["AvPairs"], MsvAvFlags)
@@ -806,6 +805,8 @@ def parsefiles(session, dir):
 	print(f"[i] ** Parsing Authenticate for session {session}")
 	with open(f"{dir}/{session}.AuthenticateIn.bin", 'rb') as s:
 		ntlm_read_AuthenticateMessage(context, s)
+	with open(f"{dir}/{session}.AuthenticateOut.bin", 'rb') as s:
+		context["AuthenticateMessage"] = s.read()
 
 	# We do some calculations
 	success = ntlm_server_AuthenticateComplete(context)
