@@ -145,11 +145,6 @@ def checkHeaderandGetType(s):
 	return type
 
 
-def streamReadNTLMMessageField(s):
-	fields = ntlm_read_message_fields(s)
-	return fields["Len"], fields["MaxLen"], fields["BufferOffset"]
-
-
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_av_pairs.c:/^NTLM_AV_PAIR\* ntlm_av_pair_get\(
 def ntlm_av_pair_get(pAvPairList, AvId):
 	with io.BytesIO(pAvPairList) as avpairlist:
