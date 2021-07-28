@@ -561,17 +561,13 @@ def ntlm_compute_lm_v2_response(context):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^static int ntlm_compute_ntlm_v2_hash\(
 def ntlm_compute_ntlm_v2_hash(context):
-	credentials = context.get("credentials")
-
-	assert credentials
+	credentials = context["credentials"]
 	assert context.get("NtlmHash") == None
-	assert credentials.get("identity") and credentials["identity"].get("Password") and len(credentials["identity"]["Password"]) <= SSPI_CREDENTIALS_HASH_LENGTH_OFFSET
-	if credentials.get("identity") and credentials["identity"].get("Password"):
-		# Password
-		hash = NTOWFv2W(credentials["identity"]["Password"], credentials["identity"]["User"], credentials["identity"]["Domain"])
-		return hash
+	assert len(credentials["identity"]["Password"]) <= SSPI_CREDENTIALS_HASH_LENGTH_OFFSET
 	assert credentials.get("HashCallback") == None
-	assert context.get("UseSamFileDatabase") == None
+	# Password
+	hash = NTOWFv2W(credentials["identity"]["Password"], credentials["identity"]["User"], credentials["identity"]["Domain"])
+	return hash
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^static int ntlm_fetch_ntlm_v2_hash\(
@@ -690,21 +686,12 @@ def test_ntlm_compute_message_integrity_check():
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm.c:/^static NTLM_CONTEXT\* ntlm_ContextNew\(
 def ntlm_ContextNew():
 	context = {}
-	context["randID"] = 0
 	context["NTLMv2"] = True
 	context["UseMIC"] = False
-	context["SendVersionInfo"] = True
-	context["SendSingleHostData"] = False
-	context["SendWorkstationName"] = True
 	context["NegotiateKeyExchange"] = True
-	context["UseSamFileDatabase"] = True
-	context["SuppressExtendedProtection"] = False
 	context["NegotiateFlags"] = 0
-	context["LmCompatibilityLevel"] = 3
 	context["state"] = NTLM_STATE_INITIAL
-	context["MachineID"] = b"0xAA" * 32
-	if context["NTLMv2"]:
-		context["UseMIC"] = True
+	context["UseMIC"] = True
 	return context
 
 
