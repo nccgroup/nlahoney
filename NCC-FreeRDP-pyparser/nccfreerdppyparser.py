@@ -229,8 +229,6 @@ def ntlm_read_ChallengeMessage(context, s):
 	s.seek(0)
 	context["ChallengeMessage"] = s.read()
 
-	#TODO? if WITH_DEBUG_NTLM:
-
 	# AV_PAIRs
 	if context["NTLMv2"]:
 		# TODO?
@@ -240,28 +238,6 @@ def ntlm_read_ChallengeMessage(context, s):
 
 	#ntlm_generate_timestamp(context)	# Timestamp
 	context["Timestamp"] = context["ChallengeTimestamp"]
-
-	# Implemented, but something's wrong?
-	#ntlm_compute_lm_v2_response(context)	# LmChallengeResponse
-	#ntlm_compute_ntlm_v2_response(context)	# NtChallengeResponse
-
-	# TODO?
-#	ntlm_generate_key_exchange_key(context)	# KeyExchangeKey
-#	ntlm_generate_random_session_key(context)	# RandomSessionKey
-#	ntlm_generate_exported_session_key(context)	# ExportedSessionKey
-#	ntlm_encrypt_random_session_key(context)	# EncryptedRandomSessionKey
-#	# Generate signing keys
-#	ntlm_generate_client_signing_key(context)
-#	ntlm_generate_server_signing_key(context)
-#	# Generate sealing keys
-#	ntlm_generate_client_sealing_key(context)
-#	ntlm_generate_server_sealing_key(context)
-#	# Initialize RC4 seal state using client sealing key
-#	ntlm_init_rc4_seal_states(context)
-
-	# TODO? if WITH_DEBUG_NTLM:
-
-	context["state"] = NTLM_STATE_AUTHENTICATE
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_write_ChallengeMessage\(
@@ -335,12 +311,6 @@ def ntlm_unwrite_ChallengeMessage(context, s):
 	context["CHALLENGE_MESSAGE"] = message
 
 	return message
-
-
-# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_generate_random_session_key\(
-def ntlm_generate_random_session_key(context):
-	"""Generate RandomSessionKey (16-byte nonce)."""
-	context["RandomSessionKey"] = secrets.token_bytes(16)
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_AuthenticateMessage\(
@@ -593,46 +563,15 @@ def ntlm_compute_lm_v2_response(context):
 def ntlm_compute_ntlm_v2_hash(context):
 	credentials = context.get("credentials")
 
-	if credentials == None:
-		print("ntlm_compute_ntlm_v2_hash: no credentials")
-		pprint.pprint(context)
-		return False
-	elif context.get("NtlmHash"):
-		# NULL
-		return False
-	elif credentials.get("identity") and credentials["identity"].get("Password") and len(credentials["identity"]["Password"]) > SSPI_CREDENTIALS_HASH_LENGTH_OFFSET:
-		# Long hash
-		# Special case for WinPR: password hash
-		NtlmHash = ntlm_convert_password_hash(context)
-		if NtlmHash == False:
-			return False
-		context["NtlmHash"] = NtlmHash
-		hash = NTOWFv2FromHashW(context["NtlmHash"], credentials["identity"]["User"], credentials["identity"]["Domain"])
-		return hash
-	elif credentials.get("identity") and credentials["identity"].get("Password"):
+	assert credentials
+	assert context.get("NtlmHash") == None
+	assert credentials.get("identity") and credentials["identity"].get("Password") and len(credentials["identity"]["Password"]) <= SSPI_CREDENTIALS_HASH_LENGTH_OFFSET
+	if credentials.get("identity") and credentials["identity"].get("Password"):
 		# Password
 		hash = NTOWFv2W(credentials["identity"]["Password"], credentials["identity"]["User"], credentials["identity"]["Domain"])
 		return hash
-	elif credentials.get("HashCallback"):
-		# Hash call back
-		proofValue = ntlm_computeProofValue(context)
-		if proofValue == False:
-			return False
-		micValue = ntlm_computeMicValue(context)
-		if micValue == False:
-			return False
-		ret = context["HashCallback"](context["HashCallbackArg"], credentials["identity"], proofValue,
-			context["EncryptedRandomSessionKey"],
-			context["AUTHENTICATE_MESSAGE"]["MessageIntegrityCheck"],
-			micValue,
-			hash)
-		return ret
-	elif context.get("UseSamFileDatabase"):
-		# Using SAM
-		ret = ntlm_fetch_ntlm_v2_hash(context)
-		return ret
-
-	return True
+	assert credentials.get("HashCallback") == None
+	assert context.get("UseSamFileDatabase") == None
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^static int ntlm_fetch_ntlm_v2_hash\(
