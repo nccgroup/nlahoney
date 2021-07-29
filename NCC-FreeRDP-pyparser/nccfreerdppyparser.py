@@ -599,7 +599,6 @@ def test_winpr_HMAC():
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_compute_ntlm_v2_response\(
 def ntlm_compute_ntlm_v2_response(context):
-	TargetInfo = context["ChallengeTargetInfo"]
 	# Compute the NTLMv2 hash
 	NtlmV2Hash = ntlm_compute_ntlm_v2_hash(context)
 	if NtlmV2Hash == False:
@@ -614,7 +613,7 @@ def ntlm_compute_ntlm_v2_response(context):
 	ntlm_v2_temp += context["Timestamp"]	# Timestamp (8 bytes)
 	ntlm_v2_temp += context["ClientChallenge"]	# ClientChallenge (8 bytes)
 	ntlm_v2_temp += b"\x00\x00\x00\x00"	# Reserved3 (4 bytes)
-	ntlm_v2_temp += TargetInfo
+	ntlm_v2_temp += context["ChallengeTargetInfo"]
 
 	# Concatenate server challenge with temp
 	ntlm_v2_temp_chal = context["ServerChallenge"]

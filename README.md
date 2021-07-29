@@ -3,14 +3,9 @@ NLA Honeypot Associated Research
 
 MIC calculation dependency tree:
 - ntlm_compute_message_integrity_check()
-	- context["NegotiateMessage"]
-		- ntlm_read_NegotiateMessage()
-			- {session}.NegotiateIn.bin
-	- context["ChallengeMessage"]
-		- ntlm_read_ChallengeMessage()
-			- {session}.ChallengeIn.bin
-	- context["AuthenticateMessage"]
-		- {session}.AuthenticateOut.bin
+	- context["NegotiateMessage"] = {session}.NegotiateIn.bin
+	- context["ChallengeMessage"] = {session}.ChallengeIn.bin
+	- context["AuthenticateMessage"] = {session}.AuthenticateOut.bin
 	- context["ExportedSessionKey"]
 		- ntlm_server_AuthenticateComplete()
 			- context["RandomSessionKey"][:16]
@@ -18,10 +13,7 @@ MIC calculation dependency tree:
 					- context["KeyExchangeKey"]
 						- (See below)
 					- context["EncryptedRandomSessionKey"]
-						- ntlm_read_AuthenticateMessage()
-							- {session}.AuthenticateIn.bin
-							- message["EncryptedRandomSessionKey"]["Buffer"]
-								- ntlm_read_message_fields_buffer(s, message["EncryptedRandomSessionKey"])
+						- ntlm_read_AuthenticateMessage() <- {session}.AuthenticateIn.bin
 				- context["KeyExchangeKey"][:16]
 					- context["SessionBaseKey"][:16]
 						- ntlm_compute_ntlm_v2_response()
@@ -30,8 +22,8 @@ MIC calculation dependency tree:
 									- ntlm_compute_ntlm_v2_hash()
 										- NTOWFv2W(context["credentials"]["identity"]["Password"], context["credentials"]["identity"]["User"], context["credentials"]["identity"]["Domain"])
 											- context["credentials"]["identity"]["Password"]
-											- context["credentials"]["identity"]["User"]
-											- context["credentials"]["identity"]["Domain"]
+											- context["credentials"]["identity"]["User"] <- {session}.AuthenticateIn.bin
+											- context["credentials"]["identity"]["Domain"] <- {session}.AuthenticateIn.bin
 											- NTOWFv2FromHashW(MD4(Password), User, Domain)
 												- winpr_HMAC(hashlib.md5, MD4(Password), User.upper() + Domain)
 								- context["NtProofString"]
@@ -40,24 +32,18 @@ MIC calculation dependency tree:
 											- (See above)
 										- ntlm_v2_temp_chal
 											- context["ServerChallenge"]
-												- ntlm_unwrite_ChallengeMessage()
-													- message["ServerChallenge"]
-														- Stream_Read(s, 8)
+												- ntlm_unwrite_ChallengeMessage() <- {session}.ChallengeOut.bin
 											- ntlm_v2_temp
 												- context["Timestamp"]
-													- ntlm_read_ChallengeMessage()
-														- {session}.ChallengeIn.bin
-														- context["ChallengeTimestamp"]
-															- ntlm_av_pair_get(message["TargetInfo"]["Buffer"], MsvAvTimestamp)
-																- message["TargetInfo"]
-																	- ntlm_read_message_fields(s)
+													- ntlm_read_ChallengeMessage() <- {session}.ChallengeIn.bin
 												- context["ClientChallenge"]
-													- ntlm_read_AuthenticateMessage()
-														- {session}.AuthenticateIn.bin
-														- context["NTLMv2Response"]["Challenge"]["ClientChallenge"][:8]
-															- ntlm_read_ntlm_v2_response(snt)
-																- message["NtChallengeResponse"]["Buffer"]
-																	- ntlm_read_message_fields(s)
+													- ntlm_read_AuthenticateMessage() <- {session}.AuthenticateIn.bin
+												- context["ChallengeTargetInfo"]
+													- ntlm_read_ChallengeMessage() <- {session}.ChallengeIn.bin
+- MIC
+	- ntlm_read_AuthenticateMessage()
+		- message["MessageIntegrityCheck"]
+			- context["MessageIntegrityCheckOffset"]
 
 
 Big picture:
