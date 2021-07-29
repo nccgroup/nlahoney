@@ -19,6 +19,7 @@ MIC calculation dependency tree:
 						- (See below)
 					- context["EncryptedRandomSessionKey"]
 						- ntlm_read_AuthenticateMessage()
+							- {session}.AuthenticateIn.bin
 							- message["EncryptedRandomSessionKey"]["Buffer"]
 								- ntlm_read_message_fields_buffer(s, message["EncryptedRandomSessionKey"])
 				- context["KeyExchangeKey"][:16]
@@ -45,12 +46,14 @@ MIC calculation dependency tree:
 											- ntlm_v2_temp
 												- context["Timestamp"]
 													- ntlm_read_ChallengeMessage()
+														- {session}.ChallengeIn.bin
 														- context["ChallengeTimestamp"]
 															- ntlm_av_pair_get(message["TargetInfo"]["Buffer"], MsvAvTimestamp)
 																- message["TargetInfo"]
 																	- ntlm_read_message_fields(s)
 												- context["ClientChallenge"]
 													- ntlm_read_AuthenticateMessage()
+														- {session}.AuthenticateIn.bin
 														- context["NTLMv2Response"]["Challenge"]["ClientChallenge"][:8]
 															- ntlm_read_ntlm_v2_response(snt)
 																- message["NtChallengeResponse"]["Buffer"]
