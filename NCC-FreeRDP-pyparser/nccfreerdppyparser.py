@@ -606,28 +606,25 @@ def ntlm_compute_ntlm_v2_response(context):
 		print("ntlm_compute_ntlm_v2_response: ntlm_compute_ntlm_v2_hash failed")
 		return False
 
-	# Construct temp
-	blob = b"\x01"	# RespType (1 byte)
-	blob += b"\x01"	# HighRespType (1 byte)
-	blob += b"\x00\x00"	# Reserved1 (2 bytes)
-	blob += b"\x00\x00\x00\x00"	# Reserved2 (4 bytes)
-	blob += context["Timestamp"]	# Timestamp (8 bytes)
-	blob += context["ClientChallenge"]	# ClientChallenge (8 bytes)
-	blob += b"\x00\x00\x00\x00"	# Reserved3 (4 bytes)
-	blob += TargetInfo
-	ntlm_v2_temp = blob
+	# Construct ntlm_v2_temp
+	ntlm_v2_temp = b"\x01"	# RespType (1 byte)
+	ntlm_v2_temp += b"\x01"	# HighRespType (1 byte)
+	ntlm_v2_temp += b"\x00\x00"	# Reserved1 (2 bytes)
+	ntlm_v2_temp += b"\x00\x00\x00\x00"	# Reserved2 (4 bytes)
+	ntlm_v2_temp += context["Timestamp"]	# Timestamp (8 bytes)
+	ntlm_v2_temp += context["ClientChallenge"]	# ClientChallenge (8 bytes)
+	ntlm_v2_temp += b"\x00\x00\x00\x00"	# Reserved3 (4 bytes)
+	ntlm_v2_temp += TargetInfo
 
 	# Concatenate server challenge with temp
-	blob = context["ServerChallenge"]
-	blob += ntlm_v2_temp
-	ntlm_v2_temp_chal = blob
+	ntlm_v2_temp_chal = context["ServerChallenge"]
+	ntlm_v2_temp_chal += ntlm_v2_temp
 	context["NtProofString"] = winpr_HMAC(hashlib.md5, context["NtlmV2Hash"], ntlm_v2_temp_chal)
 
 	# NtChallengeResponse, Concatenate NTProofStr with temp
 	# result of above HMAC
-	blob = context["NtProofString"]
-	blob += ntlm_v2_temp
-	context["NtChallengeResponse"] = blob
+	context["NtChallengeResponse"] = context["NtProofString"]
+	context["NtChallengeResponse"] += ntlm_v2_temp
 
 	# Compute SessionBaseKey, the HMAC-MD5 hash of NTProofStr using the NTLMv2 hash as the key
 	context["SessionBaseKey"] = winpr_HMAC(hashlib.md5, context["NtlmV2Hash"], context["NtProofString"])

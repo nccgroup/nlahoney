@@ -1,10 +1,61 @@
 # nlahoney
 NLA Honeypot Associated Research
 
-Todo:
-[X] Dump backtrace of functions called that lead up to authentication.
-[ ] Dump data received and data returned
-[ ] Implement each function
+MIC calculation dependency tree:
+- ntlm_compute_message_integrity_check()
+	- context["NegotiateMessage"]
+		- ntlm_read_NegotiateMessage()
+			- {session}.NegotiateIn.bin
+	- context["ChallengeMessage"]
+		- ntlm_read_ChallengeMessage()
+			- {session}.ChallengeIn.bin
+	- context["AuthenticateMessage"]
+		- {session}.AuthenticateOut.bin
+	- context["ExportedSessionKey"]
+		- ntlm_server_AuthenticateComplete()
+			- context["RandomSessionKey"][:16]
+				- ntlm_rc4k(context["KeyExchangeKey"], context["EncryptedRandomSessionKey"])
+					- context["KeyExchangeKey"]
+						- (See below)
+					- context["EncryptedRandomSessionKey"]
+						- ntlm_read_AuthenticateMessage()
+							- message["EncryptedRandomSessionKey"]["Buffer"]
+								- ntlm_read_message_fields_buffer(s, message["EncryptedRandomSessionKey"])
+				- context["KeyExchangeKey"][:16]
+					- context["SessionBaseKey"][:16]
+						- ntlm_compute_ntlm_v2_response()
+							- winpr_HMAC(hashlib.md5, context["NtlmV2Hash"], context["NtProofString"])
+								- context["NtlmV2Hash"]
+									- ntlm_compute_ntlm_v2_hash()
+										- NTOWFv2W(context["credentials"]["identity"]["Password"], context["credentials"]["identity"]["User"], context["credentials"]["identity"]["Domain"])
+											- context["credentials"]["identity"]["Password"]
+											- context["credentials"]["identity"]["User"]
+											- context["credentials"]["identity"]["Domain"]
+											- NTOWFv2FromHashW(MD4(Password), User, Domain)
+												- winpr_HMAC(hashlib.md5, MD4(Password), User.upper() + Domain)
+								- context["NtProofString"]
+									- winpr_HMAC(hashlib.md5, context["NtlmV2Hash"], ntlm_v2_temp_chal)
+										- context["NtlmV2Hash"]
+											- (See above)
+										- ntlm_v2_temp_chal
+											- context["ServerChallenge"]
+												- ntlm_unwrite_ChallengeMessage()
+													- message["ServerChallenge"]
+														- Stream_Read(s, 8)
+											- ntlm_v2_temp
+												- context["Timestamp"]
+													- ntlm_read_ChallengeMessage()
+														- context["ChallengeTimestamp"]
+															- ntlm_av_pair_get(message["TargetInfo"]["Buffer"], MsvAvTimestamp)
+																- message["TargetInfo"]
+																	- ntlm_read_message_fields(s)
+												- context["ClientChallenge"]
+													- ntlm_read_AuthenticateMessage()
+														- context["NTLMv2Response"]["Challenge"]["ClientChallenge"][:8]
+															- ntlm_read_ntlm_v2_response(snt)
+																- message["NtChallengeResponse"]["Buffer"]
+																	- ntlm_read_message_fields(s)
+
 
 Big picture:
 * once we get a way to extract a crackable hash from the NLA protocol (we are close now)
@@ -13,8 +64,6 @@ Big picture:
 * we are going to build a hashcrack CUDA implementation to make it highly performant
 * we will then use that implementation to recover the credentials (i.e. the passwords) being sprayed at RDP honeypots we deploy
 * the goal here us to understand what passwords are being used and are they organisation specific etc.
-
-- Do we want to submit this work to any conferences?
 
 - Ultimate vision is recover credentials to NLA enabled honeypots
 	- number of steps
@@ -34,14 +83,8 @@ Big picture:
 				- recover these passwords
 				- once we get them: we can check if it's your legit password, if it's leaked
 
-- BlackHat talk
-	- NTLM Hash
-	- RDP always allows
-	- This protocol isn't
-
-- Randomness of
-
-- Complex honeypot infrastructure
-
-Jan 10
-RDP Christmas
+- Do we want to submit this work to any conferences?
+	- BlackHat talk
+		- NTLM Hash
+		- RDP always allows
+		- This protocol isn't
