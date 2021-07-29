@@ -6,6 +6,7 @@
 
 # Imports
 import argparse
+import base64
 import binascii
 import glob
 import hashlib
@@ -713,6 +714,32 @@ def parsefiles(session, dir):
 		print(f"[!] Attacker from {workstation} using {domain}\\{user} but we failed to crack the password")
 
 
+def extract_hash(NegotiateOut, NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
+	with open(NegotiateOut, "rb") as s:
+		no = s.read()
+	with open(NegotiateIn, "rb") as s:
+		ni = s.read()
+	with open(ChallengeOut, "rb") as s:
+		co = s.read()
+	with open(ChallengeIn, "rb") as s:
+		ci = s.read()
+	with open(AuthenticateOut, "rb") as s:
+		ao = s.read()
+	with open(AuthenticateIn, "rb") as s:
+		ai = s.read()
+	msg = base64.b64encode(ni + ci + ao).decode()
+	hash = f"$NLA${msg}"
+	return hash
+
+
+def test_extract_hash():
+	dir = "dump"
+	session = "1482950267"
+	hash = extract_hash(f"{dir}/{session}.NegotiateOut.bin", f"{dir}/{session}.NegotiateIn.bin", f"{dir}/{session}.ChallengeOut.bin", f"{dir}/{session}.ChallengeIn.bin", f"{dir}/{session}.AuthenticateOut.bin", f"{dir}/{session}.AuthenticateIn.bin")
+	expected_msg = "TlRMTVNTUAABAAAAt4II4gAAAAAAAAAAAAAAAAAAAAAGAbEdAAAAD05UTE1TU1AAAgAAABgAGAA4AAAAt4KI4nvuRye7MpgzAAAAAAAAAACAAIAAUAAAAAYBsR0AAAAPRAA5ADkAQgBCAEUANwA2ADQANgBFADMAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQAAAABOVExNU1NQAAMAAAAYABgAjAAAAPoA+gCkAAAADAAMAFgAAAAQABAAZAAAABgAGAB0AAAAEAAQAJ4BAAA1sojiBgGxHQAAAA8AAAAAAAAAAAAAAAAAAAAAZABvAG0AYQBpAG4AdQBzAGUAcgBuAGEAbQBlAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAHHdkdDG75yPkfDvG/WAsOSKWEYysdb10+ng6z0bBB1LClWraxSQ6yEBAQAAAAAAAADS2/dLgNcBilhGMrHW9dMAAAAAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQYABAACAAAACgAQAAAAAAAAAAAAAAAAAAAAAAAJACIAVABFAFIATQBTAFIAVgAvADEAMgA3AC4AMAAuADAALgAxAAAAAAAAAAAAAAAAAAAAAAAJ6ESTQivzZZUPx8gGGr1N"
+	assert hash == f"$NLA${expected_msg}"
+
+
 if __name__ == "__main__":
 	test_NTOWFv2FromHashW()
 	test_winpr_HMAC()
@@ -722,3 +749,4 @@ if __name__ == "__main__":
 	parser.add_argument("session", help="parse this session", type=int)
 	args = parser.parse_args()
 	parsefiles(args.session, args.dir)
+	test_extract_hash()
