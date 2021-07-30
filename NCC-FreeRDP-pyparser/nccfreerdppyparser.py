@@ -436,7 +436,7 @@ def ntlm_server_AuthenticateComplete(context):
 		flags = AvFlags
 
 	# LmChallengeResponse
-	assert ntlm_compute_lm_v2_response(context)
+	ntlm_compute_lm_v2_response(context)
 	# NtChallengeResponse
 	assert ntlm_compute_ntlm_v2_response(context)
 
@@ -506,8 +506,7 @@ def ntlm_compute_lm_v2_response(context):
 	response = winpr_HMAC(hashlib.md5, context["NtlmV2Hash"], value)
 	# Concatenate the resulting HMAC-MD5 hash and the client challenge, giving us the LMv2 response
 	response += context["ClientChallenge"]
-	context["LmChallengeResponse"] = response
-	return True
+	return response
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^static int ntlm_compute_ntlm_v2_hash\(
