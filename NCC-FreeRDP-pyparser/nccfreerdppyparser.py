@@ -767,10 +767,10 @@ if __name__ == "__main__":
 			"qwerty",
 			"password",
 			"secret",
+			"yoink",
 		]
-		print(f'[i] Cracking MIC "{binascii.hexlify(components["MessageIntegrityCheck"]).decode()}"')
+		mic = binascii.hexlify(components["MessageIntegrityCheck"]).decode()
 		for password in passwordList:
-			print(f'[i] Trying "{password}"')
 			if components["MessageIntegrityCheck"] == calculate_MIC(
 				password.encode("utf-16le"),
 				components["UserDomain"],
@@ -778,7 +778,7 @@ if __name__ == "__main__":
 				components["msg"],
 				components["EncryptedRandomSessionKey"],
 			):
-				print(f'[*] Attacker from {components["workstation"]} using {components["domain"]}\\{components["user"]} with "{password}"')
+				print(f'Success: {mic}:{components["domain"]}\\{components["user"]}@{components["workstation"]}:{password}')
 				break
 		else:
-			print(f'[!] Attacker from {components["workstation"]} using {components["domain"]}\\{components["user"]} but we failed to crack the password')
+			print(f'Fail: {mic}:{components["domain"]}\\{components["user"]}@{components["workstation"]}')
