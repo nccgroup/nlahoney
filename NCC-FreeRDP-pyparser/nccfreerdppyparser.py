@@ -612,7 +612,7 @@ def parsefiles(session, dir):
 		"secret",
 	]
 	for password in passwordList:
-		print(f'[!] Trying "{password}"')
+		print(f'[i] Trying "{password}"')
 		Password = password.encode("utf-16le")
 		if MessageIntegrityCheck == calculate_MIC(Password, UserNameUpper, DomainName, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey):
 			print(f'[*] Attacker using "{domain}\\{user}" with "{password}"')
@@ -700,7 +700,8 @@ def test_extract_hash():
 
 
 def calculate_MIC(Password, UserName, DomainName, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey):
-	NtlmV2Hash = NTOWFv2W(Password, UserName, DomainName)
+	NtHashV1 = MD4(Password).bytes()
+	NtlmV2Hash = winpr_HMAC(hashlib.md5, NtHashV1, UserName.upper() + DomainName)
 	NtProofString = winpr_HMAC(hashlib.md5, NtlmV2Hash, ntlm_v2_temp_chal)
 	KeyExchangeKey = winpr_HMAC(hashlib.md5, NtlmV2Hash, NtProofString)
 	if EncryptedRandomSessionKey:
