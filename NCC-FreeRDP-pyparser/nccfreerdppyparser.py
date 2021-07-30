@@ -734,41 +734,46 @@ if __name__ == "__main__":
 	test_calculate_MIC()
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-d","--dir", help="directory containing dumps", default="dump")
-	parser.add_argument("session", help="parse this session", type=int)
+	parser.add_argument("session", help="parse this session", type=int, nargs="*")
 	args = parser.parse_args()
 
-	session_files = [
-		f"{args.dir}/{args.session}.NegotiateIn.bin",
-		f"{args.dir}/{args.session}.ChallengeOut.bin",
-		f"{args.dir}/{args.session}.ChallengeIn.bin",
-		f"{args.dir}/{args.session}.AuthenticateOut.bin",
-		f"{args.dir}/{args.session}.AuthenticateIn.bin",
-	]
+	hashes = []
+	for session in args.session:
+		session_files = [
+			f"{args.dir}/{session}.NegotiateIn.bin",
+			f"{args.dir}/{session}.ChallengeOut.bin",
+			f"{args.dir}/{session}.ChallengeIn.bin",
+			f"{args.dir}/{session}.AuthenticateOut.bin",
+			f"{args.dir}/{session}.AuthenticateIn.bin",
+		]
 
-	messages = parse_dumps(*session_files)
-	hash = generate_hash(messages)
-	print(hash)
-	components = hash_decode(hash)
-	user = messages["AuthenticateIn"]["UserName"]["Buffer"].decode("utf-16le")
-	domain = messages["AuthenticateIn"]["DomainName"]["Buffer"].decode("utf-16le")
-	workstation = messages["AuthenticateIn"]["Workstation"]["Buffer"].decode("utf-16le")
+		messages = parse_dumps(*session_files)
+		hash = generate_hash(messages)
+		print(hash)
+		hashes.append(hash)
 
-	passwordList = [
-		"qwerty",
-		"password",
-		"secret",
-	]
-	for password in passwordList:
-		print(f'[i] Trying "{password}"')
-		if components["MessageIntegrityCheck"] == calculate_MIC(
-			password.encode("utf-16le"),
-			components["UserNameUpper"],
-			components["DomainName"],
-			components["ntlm_v2_temp_chal"],
-			components["msg"],
-			components["EncryptedRandomSessionKey"],
-		):
-			print(f'[*] Attacker from {workstation} using "{domain}\\{user}" with "{password}"')
-			break
-	else:
-		print(f"[!] Attacker from {workstation} using {domain}\\{user} but we failed to crack the password")
+	for hash in hashes:
+		components = hash_decode(hash)
+		user = components["UserNameUpper"].decode("utf-16le")
+		domain = components["DomainName"].decode("utf-16le")
+
+		passwordList = [
+			"qwerty",
+			"password",
+			"secret",
+		]
+		print(f'[i] Cracking MIC "{binascii.hexlify(components["MessageIntegrityCheck"]).decode()}"')
+		for password in passwordList:
+			print(f'[i] Trying "{password}"')
+			if components["MessageIntegrityCheck"] == calculate_MIC(
+				password.encode("utf-16le"),
+				components["UserNameUpper"],
+				components["DomainName"],
+				components["ntlm_v2_temp_chal"],
+				components["msg"],
+				components["EncryptedRandomSessionKey"],
+			):
+				print(f'[*] Attacker using "{domain}\\{user}" with "{password}"')
+				break
+		else:
+			print(f"[!] Attacker using {domain}\\{user} but we failed to crack the password")
