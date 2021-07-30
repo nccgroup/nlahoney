@@ -593,42 +593,6 @@ def test_ntlm_compute_message_integrity_check():
 	assert expected == actual
 
 
-# Parse the files
-def parsefiles(dir, session):
-	messages = parse_dumps(
-		f"{dir}/{session}.NegotiateIn.bin",
-		f"{dir}/{session}.ChallengeOut.bin",
-		f"{dir}/{session}.ChallengeIn.bin",
-		f"{dir}/{session}.AuthenticateOut.bin",
-		f"{dir}/{session}.AuthenticateIn.bin",
-	)
-	hash = generate_hash(messages)
-	print(hash)
-	components = hash_decode(hash)
-	user = components["UserNameUpper"].decode("utf-16le")
-	domain = components["DomainName"].decode("utf-16le")
-
-	passwordList = [
-		"qwerty",
-		"password",
-		"secret",
-	]
-	for password in passwordList:
-		print(f'[i] Trying "{password}"')
-		if components["MessageIntegrityCheck"] == calculate_MIC(
-			password.encode("utf-16le"),
-			components["UserNameUpper"],
-			components["DomainName"],
-			components["ntlm_v2_temp_chal"],
-			components["msg"],
-			components["EncryptedRandomSessionKey"],
-		):
-			print(f'[*] Attacker using "{domain}\\{user}" with "{password}"')
-			break
-	else:
-		print(f"[!] Attacker using {domain}\\{user} but we failed to crack the password")
-
-
 def parse_dumps(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
 	context = {}
 	messages = {}
@@ -772,4 +736,38 @@ if __name__ == "__main__":
 	parser.add_argument("-d","--dir", help="directory containing dumps", default="dump")
 	parser.add_argument("session", help="parse this session", type=int)
 	args = parser.parse_args()
-	parsefiles(args.dir, args.session)
+
+	session_files = [
+		f"{args.dir}/{args.session}.NegotiateIn.bin",
+		f"{args.dir}/{args.session}.ChallengeOut.bin",
+		f"{args.dir}/{args.session}.ChallengeIn.bin",
+		f"{args.dir}/{args.session}.AuthenticateOut.bin",
+		f"{args.dir}/{args.session}.AuthenticateIn.bin",
+	]
+
+	messages = parse_dumps(*session_files)
+	hash = generate_hash(messages)
+	print(hash)
+	components = hash_decode(hash)
+	user = components["UserNameUpper"].decode("utf-16le")
+	domain = components["DomainName"].decode("utf-16le")
+
+	passwordList = [
+		"qwerty",
+		"password",
+		"secret",
+	]
+	for password in passwordList:
+		print(f'[i] Trying "{password}"')
+		if components["MessageIntegrityCheck"] == calculate_MIC(
+			password.encode("utf-16le"),
+			components["UserNameUpper"],
+			components["DomainName"],
+			components["ntlm_v2_temp_chal"],
+			components["msg"],
+			components["EncryptedRandomSessionKey"],
+		):
+			print(f'[*] Attacker using "{domain}\\{user}" with "{password}"')
+			break
+	else:
+		print(f"[!] Attacker using {domain}\\{user} but we failed to crack the password")
