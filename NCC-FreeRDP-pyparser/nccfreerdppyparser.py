@@ -777,6 +777,7 @@ def test_extract_hash():
 		"Timestamp": base64.b64encode(b"\x00\xd2\xdb\xf7K\x80\xd7\x01").decode(),
 		"DomainName": base64.b64encode(b"d\x00o\x00m\x00a\x00i\x00n\x00").decode(),
 		"UserName": "VQBTAEUAUgBOAEEATQBFAA==",
+		"MIC": base64.b64encode(b"\x7a\xc2\x2a\x98\xff\x8e\x0b\xa4\x8c\xd6\xa6\x75\xc5\x15\xc0\x31"),
 	}
 	hash = extract_hash(f"{dir}/{session}.NegotiateOut.bin", f"{dir}/{session}.NegotiateIn.bin", f"{dir}/{session}.ChallengeOut.bin", f"{dir}/{session}.ChallengeIn.bin", f"{dir}/{session}.AuthenticateOut.bin", f"{dir}/{session}.AuthenticateIn.bin")
 	assert hash == f'$NLA${expected["UserName"]}${expected["DomainName"]}${expected["EncryptedRandomSessionKey"]}${expected["msg"]}'
