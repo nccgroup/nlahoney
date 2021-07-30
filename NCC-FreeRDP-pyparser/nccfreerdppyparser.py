@@ -604,10 +604,9 @@ def parsefiles(session, dir):
 	)
 	hash = generate_hash(messages)
 	print(hash)
-	hash_b64 = hash.split("$")[2:]
-	UserNameUpper, DomainName, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey, MessageIntegrityCheck = [base64.b64decode(b) for b in hash_b64]
-	user = UserNameUpper.decode("utf-16le")
-	domain = DomainName.decode("utf-16le")
+	components = hash_decode(hash)
+	user = components["UserNameUpper"].decode("utf-16le")
+	domain = components["DomainName"].decode("utf-16le")
 
 	passwordList = [
 		"qwerty",
@@ -617,7 +616,14 @@ def parsefiles(session, dir):
 	for password in passwordList:
 		print(f'[i] Trying "{password}"')
 		Password = password.encode("utf-16le")
-		if MessageIntegrityCheck == calculate_MIC(Password, UserNameUpper, DomainName, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey):
+		if components["MessageIntegrityCheck"] == calculate_MIC(
+			Password,
+			components["UserNameUpper"],
+			components["DomainName"],
+			components["ntlm_v2_temp_chal"],
+			components["msg"],
+			components["EncryptedRandomSessionKey"],
+		):
 			print(f'[*] Attacker using "{domain}\\{user}" with "{password}"')
 			break
 	else:
@@ -670,6 +676,22 @@ def generate_hash(messages):
 	]
 	hash = "$NLA$" + "$".join(base64.b64encode(c).decode() for c in components)
 	return hash
+
+
+def hash_decode(hash):
+	"""Decode $NLA$UserNameUpper$DomainName$ntlm_v2_temp_chal$msg$EncryptedRandomSessionKey$MessageIntegrityCheck"""
+	components = hash.split("$")
+	assert components[0] == ""
+	assert components[1] == "NLA"
+	decoded = [base64.b64decode(b) for b in components[2:]]
+	return {
+		"UserNameUpper": decoded[0],
+		"DomainName": decoded[1],
+		"ntlm_v2_temp_chal": decoded[2],
+		"msg": decoded[3],
+		"EncryptedRandomSessionKey": decoded[4],
+		"MessageIntegrityCheck": decoded[5],
+	}
 
 
 def extract_hash(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
