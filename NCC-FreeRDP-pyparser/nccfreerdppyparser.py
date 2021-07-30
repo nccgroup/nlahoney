@@ -594,7 +594,7 @@ def test_ntlm_compute_message_integrity_check():
 
 
 # Parse the files
-def parsefiles(session, dir):
+def parsefiles(dir, session):
 	messages = parse_dumps(
 		f"{dir}/{session}.NegotiateIn.bin",
 		f"{dir}/{session}.ChallengeOut.bin",
@@ -773,4 +773,4 @@ if __name__ == "__main__":
 	parser.add_argument("-d","--dir", help="directory containing dumps", default="dump")
 	parser.add_argument("session", help="parse this session", type=int)
 	args = parser.parse_args()
-	parsefiles(args.session, args.dir)
+	parsefiles(args.dir, args.session)
