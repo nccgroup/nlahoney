@@ -430,7 +430,6 @@ def ntlm_read_version_info(s):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_server_AuthenticateComplete\(
 def ntlm_server_AuthenticateComplete(context):
-	message = context["AUTHENTICATE_MESSAGE"]
 	AvFlags = ntlm_av_pair_get(context["NTLMv2Response"]["Challenge"]["AvPairs"], MsvAvFlags)
 	if AvFlags:
 		flags = AvFlags
@@ -777,10 +776,10 @@ if __name__ == "__main__":
 	test_NTOWFv2FromHashW()
 	test_winpr_HMAC()
 	test_ntlm_compute_message_integrity_check()
+	test_extract_hash()
+	test_calculate_MIC()
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-d","--dir", help="directory containing dumps", default="dump")
 	parser.add_argument("session", help="parse this session", type=int)
 	args = parser.parse_args()
 	parsefiles(args.session, args.dir)
-	test_extract_hash()
-	test_calculate_MIC()
