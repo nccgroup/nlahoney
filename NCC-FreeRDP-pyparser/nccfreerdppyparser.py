@@ -610,8 +610,11 @@ def parse_dumps(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, Authent
 
 
 def generate_hash(messages):
-	UserNameUpper = messages["AuthenticateIn"]["UserName"]["Buffer"].decode("utf-16le").upper().encode("utf-16le")
-	DomainName = messages["AuthenticateIn"]["DomainName"]["Buffer"]
+	userStr = messages["AuthenticateIn"]["UserName"]["Buffer"].decode("utf-16le")
+	domainStr = messages["AuthenticateIn"]["DomainName"]["Buffer"].decode("utf-16le")
+	workstationStr = messages["AuthenticateIn"]["Workstation"]["Buffer"].decode("utf-16le")
+
+	UserDomain = (userStr.upper() + domainStr).encode("utf-16le")
 	with io.BytesIO(messages["AuthenticateIn"]["NtChallengeResponse"]["Buffer"]) as snt:
 		ChallengeTargetInfo = ntlm_read_ntlm_v2_response(snt)["Challenge"]["AvPairs"]
 	ntlm_v2_temp = b"\x01"	# RespType (1 byte)
@@ -630,30 +633,30 @@ def generate_hash(messages):
 	MessageIntegrityCheck = messages["AuthenticateIn"]["MessageIntegrityCheck"]
 
 	components = [
-		UserNameUpper,
-		DomainName,
+		UserDomain,
 		ntlm_v2_temp_chal,
 		msg,
 		EncryptedRandomSessionKey,
 		MessageIntegrityCheck,
 	]
-	hash = "$NLA$" + "$".join(base64.b64encode(c).decode() for c in components)
+	hash = f"{userStr}:{workstationStr}:{domainStr}:$NLA$" + "$".join(base64.b64encode(c).decode() for c in components)
 	return hash
 
 
 def hash_decode(hash):
-	"""Decode $NLA$UserNameUpper$DomainName$ntlm_v2_temp_chal$msg$EncryptedRandomSessionKey$MessageIntegrityCheck"""
-	components = hash.split("$")
-	assert components[0] == ""
-	assert components[1] == "NLA"
-	decoded = [base64.b64decode(b) for b in components[2:]]
+	"""Decode user:workstation:domain:$NLA$UserDomain$ntlm_v2_temp_chal$msg$EncryptedRandomSessionKey$MessageIntegrityCheck"""
+	user, workstation, domain, hashes = hash.split(":")
+	assert hashes[:5] == "$NLA$"
+	UserDomain, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey, MessageIntegrityCheck = [base64.b64decode(b) for b in hashes.split("$")[2:]]
 	return {
-		"UserNameUpper": decoded[0],
-		"DomainName": decoded[1],
-		"ntlm_v2_temp_chal": decoded[2],
-		"msg": decoded[3],
-		"EncryptedRandomSessionKey": decoded[4],
-		"MessageIntegrityCheck": decoded[5],
+		"user": user,
+		"workstation": workstation,
+		"domain": domain,
+		"UserDomain": UserDomain,
+		"ntlm_v2_temp_chal": ntlm_v2_temp_chal,
+		"msg": msg,
+		"EncryptedRandomSessionKey": EncryptedRandomSessionKey,
+		"MessageIntegrityCheck": MessageIntegrityCheck,
 	}
 
 
@@ -666,8 +669,7 @@ def test_extract_hash():
 	dir = "dump"
 	session = "1482950267"
 	expected = {
-		"UserName": "VQBTAEUAUgBOAEEATQBFAA==",
-		"DomainName": "ZABvAG0AYQBpAG4A",
+		"UserDomain": base64.b64encode("USERNAMEdomain".encode("utf-16le")).decode(),
 		"ntlm_v2_temp_chal": "e+5HJ7symDMBAQAAAAAAAADS2/dLgNcBilhGMrHW9dMAAAAAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQYABAACAAAACgAQAAAAAAAAAAAAAAAAAAAAAAAJACIAVABFAFIATQBTAFIAVgAvADEAMgA3AC4AMAAuADAALgAxAAAAAAAAAAAAAAAAAAAAAAA=",
 		"msg": "TlRMTVNTUAABAAAAt4II4gAAAAAAAAAAAAAAAAAAAAAGAbEdAAAAD05UTE1TU1AAAgAAABgAGAA4AAAAt4KI4nvuRye7MpgzAAAAAAAAAACAAIAAUAAAAAYBsR0AAAAPRAA5ADkAQgBCAEUANwA2ADQANgBFADMAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQAAAABOVExNU1NQAAMAAAAYABgAjAAAAPoA+gCkAAAADAAMAFgAAAAQABAAZAAAABgAGAB0AAAAEAAQAJ4BAAA1sojiBgGxHQAAAA8AAAAAAAAAAAAAAAAAAAAAZABvAG0AYQBpAG4AdQBzAGUAcgBuAGEAbQBlAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAHHdkdDG75yPkfDvG/WAsOSKWEYysdb10+ng6z0bBB1LClWraxSQ6yEBAQAAAAAAAADS2/dLgNcBilhGMrHW9dMAAAAAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQYABAACAAAACgAQAAAAAAAAAAAAAAAAAAAAAAAJACIAVABFAFIATQBTAFIAVgAvADEAMgA3AC4AMAAuADAALgAxAAAAAAAAAAAAAAAAAAAAAAAJ6ESTQivzZZUPx8gGGr1N",
 		"EncryptedRandomSessionKey": "CehEk0Ir82WVD8fIBhq9TQ==",
@@ -677,7 +679,7 @@ def test_extract_hash():
 		#"Timestamp": "ANLb90uA1wE=",
 		"MessageIntegrityCheck": "esIqmP+OC6SM1qZ1xRXAMQ==",
 	}
-	expect_hash = f'$NLA${expected["UserName"]}${expected["DomainName"]}${expected["ntlm_v2_temp_chal"]}${expected["msg"]}${expected["EncryptedRandomSessionKey"]}${expected["MessageIntegrityCheck"]}'
+	expect_hash = f'username:d99bbe7646e3:domain:$NLA${expected["UserDomain"]}${expected["ntlm_v2_temp_chal"]}${expected["msg"]}${expected["EncryptedRandomSessionKey"]}${expected["MessageIntegrityCheck"]}'
 	actual_hash = extract_hash(
 		f"{dir}/{session}.NegotiateIn.bin",
 		f"{dir}/{session}.ChallengeOut.bin",
@@ -688,9 +690,9 @@ def test_extract_hash():
 	assert actual_hash == expect_hash
 
 
-def calculate_MIC(Password, UserName, DomainName, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey):
+def calculate_MIC(Password, UserDomain, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey):
 	NtHashV1 = MD4(Password).bytes()
-	NtlmV2Hash = winpr_HMAC(hashlib.md5, NtHashV1, UserName.upper() + DomainName)
+	NtlmV2Hash = winpr_HMAC(hashlib.md5, NtHashV1, UserDomain)
 	NtProofString = winpr_HMAC(hashlib.md5, NtlmV2Hash, ntlm_v2_temp_chal)
 	KeyExchangeKey = winpr_HMAC(hashlib.md5, NtlmV2Hash, NtProofString)
 	if EncryptedRandomSessionKey:
@@ -701,8 +703,7 @@ def calculate_MIC(Password, UserName, DomainName, ntlm_v2_temp_chal, msg, Encryp
 
 
 def test_calculate_MIC():
-	UserName = "USERNAME".encode("utf-16le")
-	DomainName = "domain".encode("utf-16le")
+	UserDomain = "USERNAMEdomain".encode("utf-16le")
 	Password = "password".encode("utf-16le")
 	ChallengeTargetInfo = b"\x02\x00\x18\x00\x44\x00\x39\x00\x39\x00\x42\x00\x42\x00\x45\x00\x37\x00\x36\x00\x34\x00\x36\x00\x45\x00\x33\x00\x01\x00\x18\x00\x44\x00\x39\x00\x39\x00\x42\x00\x42\x00\x45\x00\x37\x00\x36\x00\x34\x00\x36\x00\x45\x00\x33\x00\x04\x00\x18\x00\x64\x00\x39\x00\x39\x00\x62\x00\x62\x00\x65\x00\x37\x00\x36\x00\x34\x00\x36\x00\x65\x00\x33\x00\x03\x00\x18\x00\x64\x00\x39\x00\x39\x00\x62\x00\x62\x00\x65\x00\x37\x00\x36\x00\x34\x00\x36\x00\x65\x00\x33\x00\x07\x00\x08\x00\x00\xd2\xdb\xf7\x4b\x80\xd7\x01\x06\x00\x04\x00\x02\x00\x00\x00\x0a\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x09\x00\x22\x00\x54\x00\x45\x00\x52\x00\x4d\x00\x53\x00\x52\x00\x56\x00\x2f\x00\x31\x00\x32\x00\x37\x00\x2e\x00\x30\x00\x2e\x00\x30\x00\x2e\x00\x31\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	ClientChallenge = b"\x8a\x58\x46\x32\xb1\xd6\xf5\xd3"
@@ -722,7 +723,7 @@ def test_calculate_MIC():
 
 	msg = b"\x4e\x54\x4c\x4d\x53\x53\x50\x00\x01\x00\x00\x00\xb7\x82\x08\xe2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x06\x01\xb1\x1d\x00\x00\x00\x0f\x4e\x54\x4c\x4d\x53\x53\x50\x00\x02\x00\x00\x00\x18\x00\x18\x00\x38\x00\x00\x00\xb7\x82\x88\xe2\x7b\xee\x47\x27\xbb\x32\x98\x33\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x80\x00\x50\x00\x00\x00\x06\x01\xb1\x1d\x00\x00\x00\x0f\x44\x00\x39\x00\x39\x00\x42\x00\x42\x00\x45\x00\x37\x00\x36\x00\x34\x00\x36\x00\x45\x00\x33\x00\x02\x00\x18\x00\x44\x00\x39\x00\x39\x00\x42\x00\x42\x00\x45\x00\x37\x00\x36\x00\x34\x00\x36\x00\x45\x00\x33\x00\x01\x00\x18\x00\x44\x00\x39\x00\x39\x00\x42\x00\x42\x00\x45\x00\x37\x00\x36\x00\x34\x00\x36\x00\x45\x00\x33\x00\x04\x00\x18\x00\x64\x00\x39\x00\x39\x00\x62\x00\x62\x00\x65\x00\x37\x00\x36\x00\x34\x00\x36\x00\x65\x00\x33\x00\x03\x00\x18\x00\x64\x00\x39\x00\x39\x00\x62\x00\x62\x00\x65\x00\x37\x00\x36\x00\x34\x00\x36\x00\x65\x00\x33\x00\x07\x00\x08\x00\x00\xd2\xdb\xf7\x4b\x80\xd7\x01\x00\x00\x00\x00\x4e\x54\x4c\x4d\x53\x53\x50\x00\x03\x00\x00\x00\x18\x00\x18\x00\x8c\x00\x00\x00\xfa\x00\xfa\x00\xa4\x00\x00\x00\x0c\x00\x0c\x00\x58\x00\x00\x00\x10\x00\x10\x00\x64\x00\x00\x00\x18\x00\x18\x00\x74\x00\x00\x00\x10\x00\x10\x00\x9e\x01\x00\x00\x35\xb2\x88\xe2\x06\x01\xb1\x1d\x00\x00\x00\x0f\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x64\x00\x6f\x00\x6d\x00\x61\x00\x69\x00\x6e\x00\x75\x00\x73\x00\x65\x00\x72\x00\x6e\x00\x61\x00\x6d\x00\x65\x00\x64\x00\x39\x00\x39\x00\x62\x00\x62\x00\x65\x00\x37\x00\x36\x00\x34\x00\x36\x00\x65\x00\x33\x00\x71\xdd\x91\xd0\xc6\xef\x9c\x8f\x91\xf0\xef\x1b\xf5\x80\xb0\xe4\x8a\x58\x46\x32\xb1\xd6\xf5\xd3\xe9\xe0\xeb\x3d\x1b\x04\x1d\x4b\x0a\x55\xab\x6b\x14\x90\xeb\x21\x01\x01\x00\x00\x00\x00\x00\x00\x00\xd2\xdb\xf7\x4b\x80\xd7\x01\x8a\x58\x46\x32\xb1\xd6\xf5\xd3\x00\x00\x00\x00\x02\x00\x18\x00\x44\x00\x39\x00\x39\x00\x42\x00\x42\x00\x45\x00\x37\x00\x36\x00\x34\x00\x36\x00\x45\x00\x33\x00\x01\x00\x18\x00\x44\x00\x39\x00\x39\x00\x42\x00\x42\x00\x45\x00\x37\x00\x36\x00\x34\x00\x36\x00\x45\x00\x33\x00\x04\x00\x18\x00\x64\x00\x39\x00\x39\x00\x62\x00\x62\x00\x65\x00\x37\x00\x36\x00\x34\x00\x36\x00\x65\x00\x33\x00\x03\x00\x18\x00\x64\x00\x39\x00\x39\x00\x62\x00\x62\x00\x65\x00\x37\x00\x36\x00\x34\x00\x36\x00\x65\x00\x33\x00\x07\x00\x08\x00\x00\xd2\xdb\xf7\x4b\x80\xd7\x01\x06\x00\x04\x00\x02\x00\x00\x00\x0a\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x09\x00\x22\x00\x54\x00\x45\x00\x52\x00\x4d\x00\x53\x00\x52\x00\x56\x00\x2f\x00\x31\x00\x32\x00\x37\x00\x2e\x00\x30\x00\x2e\x00\x30\x00\x2e\x00\x31\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x09\xe8\x44\x93\x42\x2b\xf3\x65\x95\x0f\xc7\xc8\x06\x1a\xbd\x4d"
 	expected = b"\x7a\xc2\x2a\x98\xff\x8e\x0b\xa4\x8c\xd6\xa6\x75\xc5\x15\xc0\x31"
-	actual = calculate_MIC(Password, UserName, DomainName, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey)
+	actual = calculate_MIC(Password, UserDomain, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey)
 	assert actual == expected
 
 
@@ -761,8 +762,6 @@ if __name__ == "__main__":
 
 	for hash in hashes:
 		components = hash_decode(hash)
-		user = components["UserNameUpper"].decode("utf-16le")
-		domain = components["DomainName"].decode("utf-16le")
 
 		passwordList = [
 			"qwerty",
@@ -774,13 +773,12 @@ if __name__ == "__main__":
 			print(f'[i] Trying "{password}"')
 			if components["MessageIntegrityCheck"] == calculate_MIC(
 				password.encode("utf-16le"),
-				components["UserNameUpper"],
-				components["DomainName"],
+				components["UserDomain"],
 				components["ntlm_v2_temp_chal"],
 				components["msg"],
 				components["EncryptedRandomSessionKey"],
 			):
-				print(f'[*] Attacker using "{domain}\\{user}" with "{password}"')
+				print(f'[*] Attacker from {components["workstation"]} using {components["domain"]}\\{components["user"]} with "{password}"')
 				break
 		else:
-			print(f"[!] Attacker using {domain}\\{user} but we failed to crack the password")
+			print(f'[!] Attacker from {components["workstation"]} using {components["domain"]}\\{components["user"]} but we failed to crack the password')
