@@ -656,11 +656,11 @@ def parsefiles(session, dir):
 
 	print(f"[i] ** Parsing Client Authenticate for session {session}")
 	with open(f"{dir}/{session}.AuthenticateIn.bin", 'rb') as s:
-		ntlm_read_AuthenticateMessage(context, s)
+		ai = ntlm_read_AuthenticateMessage(context, s)
 
-	workstation = context["AUTHENTICATE_MESSAGE"]["Workstation"]["Buffer"].decode("utf-16le")
-	domain = context["AUTHENTICATE_MESSAGE"]["DomainName"]["Buffer"].decode("utf-16le")
-	user = context["AUTHENTICATE_MESSAGE"]["UserName"]["Buffer"].decode("utf-16le")
+	workstation = ai["Workstation"]["Buffer"].decode("utf-16le")
+	domain = ai["DomainName"]["Buffer"].decode("utf-16le")
+	user = ai["UserName"]["Buffer"].decode("utf-16le")
 
 	passwordList = [
 		"qwerty",
