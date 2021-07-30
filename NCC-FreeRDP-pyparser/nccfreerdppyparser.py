@@ -639,9 +639,7 @@ def parse_dumps(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, Authent
 	return messages
 
 
-def extract_hash(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
-	messages = parse_dumps(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn)
-
+def generate_hash(messages):
 	UserNameUpper = messages["AuthenticateIn"]["UserName"]["Buffer"].decode("utf-16le").upper().encode("utf-16le")
 	DomainName = messages["AuthenticateIn"]["DomainName"]["Buffer"]
 	with io.BytesIO(messages["AuthenticateIn"]["NtChallengeResponse"]["Buffer"]) as snt:
@@ -655,7 +653,9 @@ def extract_hash(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, Authen
 	ntlm_v2_temp += b"\x00\x00\x00\x00"	# Reserved3 (4 bytes)
 	ntlm_v2_temp += ChallengeTargetInfo
 	ntlm_v2_temp_chal = messages["ChallengeOut"]["ServerChallenge"] + ntlm_v2_temp
-	msg = messages["NegotiateIn"]["NegotiateMessage"] + messages["ChallengeIn"]["ChallengeMessage"] + messages["AuthenticateOut"]["AuthenticateMessage"]
+	msg = messages["NegotiateIn"]["NegotiateMessage"]
+	msg += messages["ChallengeIn"]["ChallengeMessage"]
+	msg += messages["AuthenticateOut"]["AuthenticateMessage"]
 	EncryptedRandomSessionKey = messages["AuthenticateIn"]["EncryptedRandomSessionKey"]["Buffer"]
 	MessageIntegrityCheck = messages["AuthenticateIn"]["MessageIntegrityCheck"]
 
@@ -669,6 +669,11 @@ def extract_hash(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, Authen
 	]
 	hash = "$NLA$" + "$".join(base64.b64encode(c).decode() for c in components)
 	return hash
+
+
+def extract_hash(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
+	messages = parse_dumps(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn)
+	return generate_hash(messages)
 
 
 def test_extract_hash():
