@@ -208,7 +208,7 @@ def ntlm_read_ChallengeMessage(context, s):
 	message["NegotiateFlags"] = Stream_Read_UINT32(s)	# NegotiateFlags (4 bytes)
 	context["NegotiateFlags"] = message["NegotiateFlags"]
 	message["ServerChallenge"] = Stream_Read(s, 8)	# ServerChallenge (8 bytes)
-	__ = Stream_Read(s, 8)	# Reserved (8 bytes), should be ignored
+	message["Reserved"] = Stream_Read(s, 8)	# Reserved (8 bytes), should be ignored
 	message["TargetInfo"] = ntlm_read_message_fields(s)
 	if context["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
 		message["Version"] = ntlm_read_version_info(s)
@@ -222,22 +222,10 @@ def ntlm_read_ChallengeMessage(context, s):
 		context["ChallengeTargetInfo"]["cbBuffer"] = message["TargetInfo"]["Len"]
 		context["ChallengeTimestamp"] = ntlm_av_pair_get(message["TargetInfo"]["Buffer"], MsvAvTimestamp)
 
-		if context["ChallengeTimestamp"]:
-			if context["NTLMv2"]:
-				context["UseMIC"] = True
-
 	length = (PayloadOffset - StartOffset) + len(message["TargetName"]) + len(message["TargetInfo"])
 	s.seek(0)
 	context["ChallengeMessage"] = s.read()
 
-	# AV_PAIRs
-	if context["NTLMv2"]:
-		# TODO?
-		# ntlm_construct_authenticate_target_info(context)
-		# context["ChallengeTargetInfo"] = context["AuthenticateTargetInfo"]
-		context["ChallengeTargetInfo"] = {}
-
-	#ntlm_generate_timestamp(context)	# Timestamp
 	context["Timestamp"] = context["ChallengeTimestamp"]
 	message["Timestamp"] = context["ChallengeTimestamp"]
 	return message
@@ -318,8 +306,6 @@ def ntlm_unwrite_ChallengeMessage(context, s):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_AuthenticateMessage\(
 def ntlm_read_AuthenticateMessage(context, s):
-	credentials = context["credentials"]
-
 	context["AUTHENTICATE_MESSAGE"] = {}
 	message = context["AUTHENTICATE_MESSAGE"]
 
@@ -405,12 +391,14 @@ def ntlm_read_AuthenticateMessage(context, s):
 	message["MessageIntegrityCheck"] = Stream_Read(s, 16)
 	print(f"[i] Got MIC {binascii.hexlify(message['MessageIntegrityCheck'])}")
 
+	context["credentials"] = context.get("credentials", {})
+	context["credentials"]["identity"] = context["credentials"].get("identity", {})
 	if message["UserName"]["Len"]:
-		credentials["identity"]["User"] = message["UserName"]["Buffer"]
-		credentials["identity"]["UserLength"] = message["UserName"]["Len"] // 2
+		context["credentials"]["identity"]["User"] = message["UserName"]["Buffer"]
+		context["credentials"]["identity"]["UserLength"] = message["UserName"]["Len"] // 2
 	if message["DomainName"]["Len"]:
-		credentials["identity"]["Domain"] = message["DomainName"]["Buffer"]
-		credentials["identity"]["DomainLength"] = message["DomainName"]["Len"] // 2
+		context["credentials"]["identity"]["Domain"] = message["DomainName"]["Buffer"]
+		context["credentials"]["identity"]["DomainLength"] = message["DomainName"]["Len"] // 2
 
 	context["AUTHENTICATE_MESSAGE"] = message
 	return message
@@ -661,11 +649,9 @@ def test_ntlm_compute_message_integrity_check():
 def ntlm_ContextNew():
 	context = {}
 	context["NTLMv2"] = True
-	context["UseMIC"] = False
 	context["NegotiateKeyExchange"] = True
 	context["NegotiateFlags"] = 0
 	context["state"] = NTLM_STATE_INITIAL
-	context["UseMIC"] = True
 	return context
 
 
@@ -719,9 +705,7 @@ def parsefiles(session, dir):
 
 
 def extract_hash(NegotiateOut, NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
-	context = ntlm_ContextNew()
-	context["credentials"] = {}
-	context["credentials"]["identity"] = {}
+	context = {}
 
 	with open(NegotiateOut, "rb") as s:
 		no = s.read()
