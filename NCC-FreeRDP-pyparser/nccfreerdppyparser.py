@@ -615,9 +615,8 @@ def parsefiles(dir, session):
 	]
 	for password in passwordList:
 		print(f'[i] Trying "{password}"')
-		Password = password.encode("utf-16le")
 		if components["MessageIntegrityCheck"] == calculate_MIC(
-			Password,
+			password.encode("utf-16le"),
 			components["UserNameUpper"],
 			components["DomainName"],
 			components["ntlm_v2_temp_chal"],
