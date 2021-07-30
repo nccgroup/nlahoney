@@ -410,6 +410,7 @@ def ntlm_read_AuthenticateMessage(context, s):
 		credentials["identity"]["DomainLength"] = message["DomainName"]["Len"] // 2
 
 	context["AUTHENTICATE_MESSAGE"] = message
+	return message
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_read_ntlm_v2_response\(
@@ -693,6 +694,14 @@ def parsefiles(session, dir):
 	with open(f"{dir}/{session}.AuthenticateOut.bin", 'rb') as s:
 		context["AuthenticateMessage"] = s.read()
 
+	print(f'{base64.b64encode(context["ChallengeTargetInfo"])=}')
+	print(f'{base64.b64encode(context["ClientChallenge"])=}')
+	print(f'{base64.b64encode(context["EncryptedRandomSessionKey"])=}')
+	print(f'{base64.b64encode(context["ServerChallenge"])=}')
+	print(f'{base64.b64encode(context["Timestamp"])=}')
+	print(f'{base64.b64encode(context["credentials"]["identity"]["Domain"])=}')
+	print(f'{base64.b64encode(context["credentials"]["identity"]["User"])=}')
+
 	workstation = context["AUTHENTICATE_MESSAGE"]["Workstation"]["Buffer"].decode("utf-16le")
 	domain = context["AUTHENTICATE_MESSAGE"]["DomainName"]["Buffer"].decode("utf-16le")
 	user = context["AUTHENTICATE_MESSAGE"]["UserName"]["Buffer"].decode("utf-16le")
@@ -715,29 +724,62 @@ def parsefiles(session, dir):
 
 
 def extract_hash(NegotiateOut, NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
+	context = ntlm_ContextNew()
+	context["credentials"] = {}
+	context["credentials"]["identity"] = {}
+
 	with open(NegotiateOut, "rb") as s:
 		no = s.read()
 	with open(NegotiateIn, "rb") as s:
 		ni = s.read()
+		s.seek(0)
+		ni_msg = ntlm_read_NegotiateMessage(context, s)
 	with open(ChallengeOut, "rb") as s:
 		co = s.read()
+		s.seek(0)
+		co_msg = ntlm_unwrite_ChallengeMessage(context, s)
 	with open(ChallengeIn, "rb") as s:
 		ci = s.read()
+		s.seek(0)
+		ci_msg = ntlm_read_ChallengeMessage(context, s)
 	with open(AuthenticateOut, "rb") as s:
 		ao = s.read()
 	with open(AuthenticateIn, "rb") as s:
 		ai = s.read()
+		s.seek(0)
+		ai_msg = ntlm_read_AuthenticateMessage(context, s)
+		UserNameUpperUTF16 = ai_msg["UserName"]["Buffer"].decode("utf-16le").upper().encode("utf-16le")
+		UserName = base64.b64encode(UserNameUpperUTF16).decode()
+		DomainName = base64.b64encode(ai_msg["DomainName"]["Buffer"]).decode()
+		EncryptedRandomSessionKey = base64.b64encode(ai_msg["EncryptedRandomSessionKey"]["Buffer"]).decode()
 	msg = base64.b64encode(ni + ci + ao).decode()
-	hash = f"$NLA${msg}"
+	components = [
+		"NLA",
+		UserName,
+		DomainName,
+		EncryptedRandomSessionKey,
+		msg,
+	]
+	pprint.pprint(components)
+	hash = "$" + "$".join(components)
 	return hash
 
 
 def test_extract_hash():
 	dir = "dump"
 	session = "1482950267"
+	expected = {
+		"msg": "TlRMTVNTUAABAAAAt4II4gAAAAAAAAAAAAAAAAAAAAAGAbEdAAAAD05UTE1TU1AAAgAAABgAGAA4AAAAt4KI4nvuRye7MpgzAAAAAAAAAACAAIAAUAAAAAYBsR0AAAAPRAA5ADkAQgBCAEUANwA2ADQANgBFADMAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQAAAABOVExNU1NQAAMAAAAYABgAjAAAAPoA+gCkAAAADAAMAFgAAAAQABAAZAAAABgAGAB0AAAAEAAQAJ4BAAA1sojiBgGxHQAAAA8AAAAAAAAAAAAAAAAAAAAAZABvAG0AYQBpAG4AdQBzAGUAcgBuAGEAbQBlAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAHHdkdDG75yPkfDvG/WAsOSKWEYysdb10+ng6z0bBB1LClWraxSQ6yEBAQAAAAAAAADS2/dLgNcBilhGMrHW9dMAAAAAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQYABAACAAAACgAQAAAAAAAAAAAAAAAAAAAAAAAJACIAVABFAFIATQBTAFIAVgAvADEAMgA3AC4AMAAuADAALgAxAAAAAAAAAAAAAAAAAAAAAAAJ6ESTQivzZZUPx8gGGr1N",
+		"ChallengeTargetInfo": base64.b64encode(b'\x02\x00\x18\x00D\x009\x009\x00B\x00B\x00E\x007\x006\x004\x006\x00E\x003\x00\x01\x00\x18\x00D\x009\x009\x00B\x00B\x00E\x007\x006\x004\x006\x00E\x003\x00\x04\x00\x18\x00d\x009\x009\x00b\x00b\x00e\x007\x006\x004\x006\x00e\x003\x00\x03\x00\x18\x00d\x009\x009\x00b\x00b\x00e\x007\x006\x004\x006\x00e\x003\x00\x07\x00\x08\x00\x00\xd2\xdb\xf7K\x80\xd7\x01\x06\x00\x04\x00\x02\x00\x00\x00\n\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\t\x00"\x00T\x00E\x00R\x00M\x00S\x00R\x00V\x00/\x001\x002\x007\x00.\x000\x00.\x000\x00.\x001\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00').decode(),
+		"ClientChallenge": base64.b64encode(b"\x8aXF2\xb1\xd6\xf5\xd3").decode(),
+		"EncryptedRandomSessionKey": base64.b64encode(b"\t\xe8D\x93B+\xf3e\x95\x0f\xc7\xc8\x06\x1a\xbdM").decode(),
+		"ServerChallenge": base64.b64encode(b"{\xeeG'\xbb2\x983").decode(),
+		"Timestamp": base64.b64encode(b"\x00\xd2\xdb\xf7K\x80\xd7\x01").decode(),
+		"DomainName": base64.b64encode(b"d\x00o\x00m\x00a\x00i\x00n\x00").decode(),
+		"UserName": "VQBTAEUAUgBOAEEATQBFAA==",
+	}
 	hash = extract_hash(f"{dir}/{session}.NegotiateOut.bin", f"{dir}/{session}.NegotiateIn.bin", f"{dir}/{session}.ChallengeOut.bin", f"{dir}/{session}.ChallengeIn.bin", f"{dir}/{session}.AuthenticateOut.bin", f"{dir}/{session}.AuthenticateIn.bin")
-	expected_msg = "TlRMTVNTUAABAAAAt4II4gAAAAAAAAAAAAAAAAAAAAAGAbEdAAAAD05UTE1TU1AAAgAAABgAGAA4AAAAt4KI4nvuRye7MpgzAAAAAAAAAACAAIAAUAAAAAYBsR0AAAAPRAA5ADkAQgBCAEUANwA2ADQANgBFADMAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQAAAABOVExNU1NQAAMAAAAYABgAjAAAAPoA+gCkAAAADAAMAFgAAAAQABAAZAAAABgAGAB0AAAAEAAQAJ4BAAA1sojiBgGxHQAAAA8AAAAAAAAAAAAAAAAAAAAAZABvAG0AYQBpAG4AdQBzAGUAcgBuAGEAbQBlAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAHHdkdDG75yPkfDvG/WAsOSKWEYysdb10+ng6z0bBB1LClWraxSQ6yEBAQAAAAAAAADS2/dLgNcBilhGMrHW9dMAAAAAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQYABAACAAAACgAQAAAAAAAAAAAAAAAAAAAAAAAJACIAVABFAFIATQBTAFIAVgAvADEAMgA3AC4AMAAuADAALgAxAAAAAAAAAAAAAAAAAAAAAAAJ6ESTQivzZZUPx8gGGr1N"
-	assert hash == f"$NLA${expected_msg}"
+	assert hash == f'$NLA${expected["UserName"]}${expected["DomainName"]}${expected["EncryptedRandomSessionKey"]}${expected["msg"]}'
 
 
 if __name__ == "__main__":

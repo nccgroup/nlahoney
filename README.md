@@ -3,9 +3,10 @@ NLA Honeypot Associated Research
 
 MIC calculation dependency tree:
 - ntlm_compute_message_integrity_check()
-	- context["NegotiateMessage"] = {session}.NegotiateIn.bin
-	- context["ChallengeMessage"] = {session}.ChallengeIn.bin
-	- context["AuthenticateMessage"] = {session}.AuthenticateOut.bin
+	- msg
+		- context["NegotiateMessage"] = {session}.NegotiateIn.bin
+		- context["ChallengeMessage"] = {session}.ChallengeIn.bin
+		- context["AuthenticateMessage"] = {session}.AuthenticateOut.bin
 	- context["ExportedSessionKey"]
 		- ntlm_server_AuthenticateComplete()
 			- context["RandomSessionKey"][:16]
