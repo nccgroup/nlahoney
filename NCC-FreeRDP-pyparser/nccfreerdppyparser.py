@@ -86,14 +86,6 @@ MsvAvSingleHost = 8
 MsvAvTargetName = 9
 MsvChannelBindings = 10
 
-# enum _NTLM_STATE
-NTLM_STATE_INITIAL = 0
-NTLM_STATE_NEGOTIATE = 1
-NTLM_STATE_CHALLENGE = 2
-NTLM_STATE_AUTHENTICATE = 3
-NTLM_STATE_COMPLETION = 4
-NTLM_STATE_FINAL = 5
-
 
 def Stream_Read(s, n):
 	raw = s.read(n)
@@ -163,7 +155,7 @@ def ntlm_av_pair_get(pAvPairList, AvId):
 
 				break
 			elif avid == MsvAvEOL:
-					raise ValueError(f"ntlm_av_pair_get: MsvAvEOL")
+				raise ValueError(f"ntlm_av_pair_get: MsvAvEOL")
 			else: # get next
 				avpairlist.seek(avlen, io.SEEK_CUR)
 
@@ -220,14 +212,13 @@ def ntlm_read_ChallengeMessage(context, s):
 		context["ChallengeTargetInfo"] = {}
 		context["ChallengeTargetInfo"]["pvBuffer"] = message["TargetInfo"]["Buffer"]
 		context["ChallengeTargetInfo"]["cbBuffer"] = message["TargetInfo"]["Len"]
-		context["ChallengeTimestamp"] = ntlm_av_pair_get(message["TargetInfo"]["Buffer"], MsvAvTimestamp)
+		message["Timestamp"] = ntlm_av_pair_get(message["TargetInfo"]["Buffer"], MsvAvTimestamp)
 
 	length = (PayloadOffset - StartOffset) + len(message["TargetName"]) + len(message["TargetInfo"])
 	s.seek(0)
 	context["ChallengeMessage"] = s.read()
 
-	context["Timestamp"] = context["ChallengeTimestamp"]
-	message["Timestamp"] = context["ChallengeTimestamp"]
+	context["Timestamp"] = message["Timestamp"]
 	return message
 
 
@@ -367,7 +358,6 @@ def ntlm_read_AuthenticateMessage(context, s):
 		context["ClientChallenge"] = context["NTLMv2Response"]["Challenge"]["ClientChallenge"][:8]
 		message["ClientChallenge"] = context["ClientChallenge"]
 		AvFlags = ntlm_av_pair_get(context["NTLMv2Response"]["Challenge"]["AvPairs"], MsvAvFlags)
-
 		if AvFlags:
 			flags = AvFlags
 
@@ -645,24 +635,9 @@ def test_ntlm_compute_message_integrity_check():
 	assert expected == actual
 
 
-# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm.c:/^static NTLM_CONTEXT\* ntlm_ContextNew\(
-def ntlm_ContextNew():
-	context = {}
-	context["NTLMv2"] = True
-	context["NegotiateKeyExchange"] = True
-	context["NegotiateFlags"] = 0
-	context["state"] = NTLM_STATE_INITIAL
-	return context
-
-
 # Parse the files
 def parsefiles(session, dir):
-	context = ntlm_ContextNew()
-
-	# Add static credentials for use with calculating hash
-	# TODO: use dictionary
-	context["credentials"] = {}
-	context["credentials"]["identity"] = {}
+	context = {}
 
 	# We parse the files
 	print(f"[i] ** Parsing Client Negotiate for session {session}")
