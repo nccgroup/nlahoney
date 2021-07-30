@@ -438,7 +438,7 @@ def ntlm_server_AuthenticateComplete(context):
 	# LmChallengeResponse
 	ntlm_compute_lm_v2_response(context)
 	# NtChallengeResponse
-	assert ntlm_compute_ntlm_v2_response(context)
+	ntlm_compute_ntlm_v2_response(context)
 
 	# KeyExchangeKey
 	# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_generate_key_exchange_key\(
@@ -593,8 +593,6 @@ def ntlm_compute_ntlm_v2_response(context):
 
 	# Compute SessionBaseKey, the HMAC-MD5 hash of NTProofStr using the NTLMv2 hash as the key
 	context["SessionBaseKey"] = winpr_HMAC(hashlib.md5, context["NtlmV2Hash"], context["NtProofString"])
-
-	return True
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_compute_message_integrity_check\(
