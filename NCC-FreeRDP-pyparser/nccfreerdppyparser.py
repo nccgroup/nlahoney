@@ -184,7 +184,8 @@ def ntlm_read_NegotiateMessage(context, s):
 		message["Version"] = ntlm_read_version_info(s)
 
 	s.seek(0)
-	context["NegotiateMessage"] = s.read()
+	message["NegotiateMessage"] = s.read()
+	context["NegotiateMessage"] = message["NegotiateMessage"]
 	return message
 
 
@@ -200,8 +201,6 @@ def ntlm_read_ChallengeMessage(context, s):
 	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
 		message["Version"] = ntlm_read_version_info(s)
 
-	PayloadOffset = s.tell()
-
 	if message["TargetName"]["Len"]:
 		ntlm_read_message_fields_buffer(s, message["TargetInfo"])
 		context["ChallengeTargetInfo"] = {}
@@ -211,7 +210,8 @@ def ntlm_read_ChallengeMessage(context, s):
 		context["Timestamp"] = message["Timestamp"]
 
 	s.seek(0)
-	context["ChallengeMessage"] = s.read()
+	message["ChallengeMessage"] = s.read()
+	context["ChallengeMessage"] = message["ChallengeMessage"]
 	return message
 
 
@@ -279,7 +279,9 @@ def ntlm_unwrite_ChallengeMessage(context, s):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_write_AuthenticateMessage\(
 def ntlm_unwrite_AuthenticateMessage(context, s):
-	context["AuthenticateMessage"] = s.read()
+	message = {}
+	message["AuthenticateMessage"] = s.read()
+	return message
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_AuthenticateMessage\(
@@ -621,45 +623,41 @@ def parsefiles(session, dir):
 		print(f"[!] Attacker using {domain}\\{user} but we failed to crack the password")
 
 
-def extract_hash(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
+def parse_dumps(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
 	context = {}
-
+	messages = {}
 	with open(NegotiateIn, "rb") as s:
-		ni = s.read()
-		s.seek(0)
-		ni_msg = ntlm_read_NegotiateMessage(context, s)
+		messages["NegotiateIn"] = ntlm_read_NegotiateMessage(context, s)
 	with open(ChallengeOut, "rb") as s:
-		co = s.read()
-		s.seek(0)
-		co_msg = ntlm_unwrite_ChallengeMessage(context, s)
-		ServerChallenge = co_msg["ServerChallenge"]
+		messages["ChallengeOut"] = ntlm_unwrite_ChallengeMessage(context, s)
 	with open(ChallengeIn, "rb") as s:
-		ci = s.read()
-		s.seek(0)
-		ci_msg = ntlm_read_ChallengeMessage(context, s)
+		messages["ChallengeIn"] = ntlm_read_ChallengeMessage(context, s)
 	with open(AuthenticateOut, "rb") as s:
-		ao = s.read()
+		messages["AuthenticateOut"] = ntlm_unwrite_AuthenticateMessage(context, s)
 	with open(AuthenticateIn, "rb") as s:
-		ai = s.read()
-		s.seek(0)
-		ai_msg = ntlm_read_AuthenticateMessage(context, s)
+		messages["AuthenticateIn"] = ntlm_read_AuthenticateMessage(context, s)
+	return messages
 
-	UserNameUpper = ai_msg["UserName"]["Buffer"].decode("utf-16le").upper().encode("utf-16le")
-	DomainName = ai_msg["DomainName"]["Buffer"]
-	with io.BytesIO(ai_msg["NtChallengeResponse"]["Buffer"]) as snt:
+
+def extract_hash(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
+	messages = parse_dumps(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn)
+
+	UserNameUpper = messages["AuthenticateIn"]["UserName"]["Buffer"].decode("utf-16le").upper().encode("utf-16le")
+	DomainName = messages["AuthenticateIn"]["DomainName"]["Buffer"]
+	with io.BytesIO(messages["AuthenticateIn"]["NtChallengeResponse"]["Buffer"]) as snt:
 		ChallengeTargetInfo = ntlm_read_ntlm_v2_response(snt)["Challenge"]["AvPairs"]
 	ntlm_v2_temp = b"\x01"	# RespType (1 byte)
 	ntlm_v2_temp += b"\x01"	# HighRespType (1 byte)
 	ntlm_v2_temp += b"\x00\x00"	# Reserved1 (2 bytes)
 	ntlm_v2_temp += b"\x00\x00\x00\x00"	# Reserved2 (4 bytes)
-	ntlm_v2_temp += ci_msg["Timestamp"]	# Timestamp (8 bytes)
-	ntlm_v2_temp += ai_msg["ClientChallenge"]	# ClientChallenge (8 bytes)
+	ntlm_v2_temp += messages["ChallengeIn"]["Timestamp"]	# Timestamp (8 bytes)
+	ntlm_v2_temp += messages["AuthenticateIn"]["ClientChallenge"]	# ClientChallenge (8 bytes)
 	ntlm_v2_temp += b"\x00\x00\x00\x00"	# Reserved3 (4 bytes)
 	ntlm_v2_temp += ChallengeTargetInfo
-	ntlm_v2_temp_chal = ServerChallenge + ntlm_v2_temp
-	msg = ni + ci + ao
-	EncryptedRandomSessionKey = ai_msg["EncryptedRandomSessionKey"]["Buffer"]
-	MessageIntegrityCheck = ai_msg["MessageIntegrityCheck"]
+	ntlm_v2_temp_chal = messages["ChallengeOut"]["ServerChallenge"] + ntlm_v2_temp
+	msg = messages["NegotiateIn"]["NegotiateMessage"] + messages["ChallengeIn"]["ChallengeMessage"] + messages["AuthenticateOut"]["AuthenticateMessage"]
+	EncryptedRandomSessionKey = messages["AuthenticateIn"]["EncryptedRandomSessionKey"]["Buffer"]
+	MessageIntegrityCheck = messages["AuthenticateIn"]["MessageIntegrityCheck"]
 
 	components = [
 		UserNameUpper,
