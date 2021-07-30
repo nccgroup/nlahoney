@@ -734,17 +734,24 @@ if __name__ == "__main__":
 	test_calculate_MIC()
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-d","--dir", help="directory containing dumps", default="dump")
-	parser.add_argument("session", help="parse this session", type=int, nargs="*")
+	parser.add_argument("sessions", help="parse these session", type=int, nargs="*")
 	args = parser.parse_args()
 
+	os.chdir(args.dir)
+
 	hashes = []
-	for session in args.session:
+	if args.sessions:
+		sessions = args.sessions
+	else:
+		matches = glob.glob("*.NegotiateIn.bin")
+		sessions = [s[:-len(".NegotiateIn.bin")] for s in matches]
+	for session in sessions:
 		session_files = [
-			f"{args.dir}/{session}.NegotiateIn.bin",
-			f"{args.dir}/{session}.ChallengeOut.bin",
-			f"{args.dir}/{session}.ChallengeIn.bin",
-			f"{args.dir}/{session}.AuthenticateOut.bin",
-			f"{args.dir}/{session}.AuthenticateIn.bin",
+			f"{session}.NegotiateIn.bin",
+			f"{session}.ChallengeOut.bin",
+			f"{session}.ChallengeIn.bin",
+			f"{session}.AuthenticateOut.bin",
+			f"{session}.AuthenticateIn.bin",
 		]
 
 		messages = parse_dumps(*session_files)
