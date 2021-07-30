@@ -239,6 +239,8 @@ def ntlm_read_ChallengeMessage(context, s):
 
 	#ntlm_generate_timestamp(context)	# Timestamp
 	context["Timestamp"] = context["ChallengeTimestamp"]
+	message["Timestamp"] = context["ChallengeTimestamp"]
+	return message
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_write_ChallengeMessage\(
@@ -377,6 +379,7 @@ def ntlm_read_AuthenticateMessage(context, s):
 		context["NtChallengeResponse"] = message["NtChallengeResponse"]
 		context["ChallengeTargetInfo"] = context["NTLMv2Response"]["Challenge"]["AvPairs"]
 		context["ClientChallenge"] = context["NTLMv2Response"]["Challenge"]["ClientChallenge"][:8]
+		message["ClientChallenge"] = context["ClientChallenge"]
 		AvFlags = ntlm_av_pair_get(context["NTLMv2Response"]["Challenge"]["AvPairs"], MsvAvFlags)
 
 		if AvFlags:
@@ -694,14 +697,6 @@ def parsefiles(session, dir):
 	with open(f"{dir}/{session}.AuthenticateOut.bin", 'rb') as s:
 		context["AuthenticateMessage"] = s.read()
 
-	print(f'{base64.b64encode(context["ChallengeTargetInfo"])=}')
-	print(f'{base64.b64encode(context["ClientChallenge"])=}')
-	print(f'{base64.b64encode(context["EncryptedRandomSessionKey"])=}')
-	print(f'{base64.b64encode(context["ServerChallenge"])=}')
-	print(f'{base64.b64encode(context["Timestamp"])=}')
-	print(f'{base64.b64encode(context["credentials"]["identity"]["Domain"])=}')
-	print(f'{base64.b64encode(context["credentials"]["identity"]["User"])=}')
-
 	workstation = context["AUTHENTICATE_MESSAGE"]["Workstation"]["Buffer"].decode("utf-16le")
 	domain = context["AUTHENTICATE_MESSAGE"]["DomainName"]["Buffer"].decode("utf-16le")
 	user = context["AUTHENTICATE_MESSAGE"]["UserName"]["Buffer"].decode("utf-16le")
@@ -738,49 +733,65 @@ def extract_hash(NegotiateOut, NegotiateIn, ChallengeOut, ChallengeIn, Authentic
 		co = s.read()
 		s.seek(0)
 		co_msg = ntlm_unwrite_ChallengeMessage(context, s)
+		ServerChallenge = co_msg["ServerChallenge"]
 	with open(ChallengeIn, "rb") as s:
 		ci = s.read()
 		s.seek(0)
 		ci_msg = ntlm_read_ChallengeMessage(context, s)
+		Timestamp = ci_msg["Timestamp"]
 	with open(AuthenticateOut, "rb") as s:
 		ao = s.read()
 	with open(AuthenticateIn, "rb") as s:
 		ai = s.read()
 		s.seek(0)
 		ai_msg = ntlm_read_AuthenticateMessage(context, s)
-		UserNameUpperUTF16 = ai_msg["UserName"]["Buffer"].decode("utf-16le").upper().encode("utf-16le")
-		UserName = base64.b64encode(UserNameUpperUTF16).decode()
-		DomainName = base64.b64encode(ai_msg["DomainName"]["Buffer"]).decode()
-		EncryptedRandomSessionKey = base64.b64encode(ai_msg["EncryptedRandomSessionKey"]["Buffer"]).decode()
-	msg = base64.b64encode(ni + ci + ao).decode()
+		UserNameUpper = ai_msg["UserName"]["Buffer"].decode("utf-16le").upper().encode("utf-16le")
+		DomainName = ai_msg["DomainName"]["Buffer"]
+		EncryptedRandomSessionKey = ai_msg["EncryptedRandomSessionKey"]["Buffer"]
+		ClientChallenge = ai_msg["ClientChallenge"]
+		with io.BytesIO(ai_msg["NtChallengeResponse"]["Buffer"]) as snt:
+			ChallengeTargetInfo = ntlm_read_ntlm_v2_response(snt)["Challenge"]["AvPairs"]
+	msg = ni + ci + ao
+
+	ntlm_v2_temp = b"\x01"	# RespType (1 byte)
+	ntlm_v2_temp += b"\x01"	# HighRespType (1 byte)
+	ntlm_v2_temp += b"\x00\x00"	# Reserved1 (2 bytes)
+	ntlm_v2_temp += b"\x00\x00\x00\x00"	# Reserved2 (4 bytes)
+	ntlm_v2_temp += Timestamp	# Timestamp (8 bytes)
+	ntlm_v2_temp += ClientChallenge	# ClientChallenge (8 bytes)
+	ntlm_v2_temp += b"\x00\x00\x00\x00"	# Reserved3 (4 bytes)
+	ntlm_v2_temp += ChallengeTargetInfo
+	ntlm_v2_temp_chal = ServerChallenge + ntlm_v2_temp
+
 	components = [
-		"NLA",
-		UserName,
+		UserNameUpper,
 		DomainName,
-		EncryptedRandomSessionKey,
+		ntlm_v2_temp_chal,
 		msg,
+		EncryptedRandomSessionKey,
 	]
-	pprint.pprint(components)
-	hash = "$" + "$".join(components)
-	return hash
+	hash = b"$NLA$" + b"$".join(base64.b64encode(c) for c in components)
+	return hash.decode()
 
 
 def test_extract_hash():
 	dir = "dump"
 	session = "1482950267"
 	expected = {
-		"msg": "TlRMTVNTUAABAAAAt4II4gAAAAAAAAAAAAAAAAAAAAAGAbEdAAAAD05UTE1TU1AAAgAAABgAGAA4AAAAt4KI4nvuRye7MpgzAAAAAAAAAACAAIAAUAAAAAYBsR0AAAAPRAA5ADkAQgBCAEUANwA2ADQANgBFADMAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQAAAABOVExNU1NQAAMAAAAYABgAjAAAAPoA+gCkAAAADAAMAFgAAAAQABAAZAAAABgAGAB0AAAAEAAQAJ4BAAA1sojiBgGxHQAAAA8AAAAAAAAAAAAAAAAAAAAAZABvAG0AYQBpAG4AdQBzAGUAcgBuAGEAbQBlAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAHHdkdDG75yPkfDvG/WAsOSKWEYysdb10+ng6z0bBB1LClWraxSQ6yEBAQAAAAAAAADS2/dLgNcBilhGMrHW9dMAAAAAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQYABAACAAAACgAQAAAAAAAAAAAAAAAAAAAAAAAJACIAVABFAFIATQBTAFIAVgAvADEAMgA3AC4AMAAuADAALgAxAAAAAAAAAAAAAAAAAAAAAAAJ6ESTQivzZZUPx8gGGr1N",
-		"ChallengeTargetInfo": "AgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQYABAACAAAACgAQAAAAAAAAAAAAAAAAAAAAAAAJACIAVABFAFIATQBTAFIAVgAvADEAMgA3AC4AMAAuADAALgAxAAAAAAAAAAAAAAAAAAAAAAA=",
-		"ClientChallenge": "ilhGMrHW9dM=",
-		"EncryptedRandomSessionKey": "CehEk0Ir82WVD8fIBhq9TQ==",
-		"ServerChallenge": "e+5HJ7symDM=",
-		"Timestamp": "ANLb90uA1wE=",
-		"DomainName": "ZABvAG0AYQBpAG4A",
 		"UserName": "VQBTAEUAUgBOAEEATQBFAA==",
-		"MIC": "esIqmP+OC6SM1qZ1xRXAMQ==",
+		"DomainName": "ZABvAG0AYQBpAG4A",
+		"ntlm_v2_temp_chal": "e+5HJ7symDMBAQAAAAAAAADS2/dLgNcBilhGMrHW9dMAAAAAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQYABAACAAAACgAQAAAAAAAAAAAAAAAAAAAAAAAJACIAVABFAFIATQBTAFIAVgAvADEAMgA3AC4AMAAuADAALgAxAAAAAAAAAAAAAAAAAAAAAAA=",
+		"msg": "TlRMTVNTUAABAAAAt4II4gAAAAAAAAAAAAAAAAAAAAAGAbEdAAAAD05UTE1TU1AAAgAAABgAGAA4AAAAt4KI4nvuRye7MpgzAAAAAAAAAACAAIAAUAAAAAYBsR0AAAAPRAA5ADkAQgBCAEUANwA2ADQANgBFADMAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQAAAABOVExNU1NQAAMAAAAYABgAjAAAAPoA+gCkAAAADAAMAFgAAAAQABAAZAAAABgAGAB0AAAAEAAQAJ4BAAA1sojiBgGxHQAAAA8AAAAAAAAAAAAAAAAAAAAAZABvAG0AYQBpAG4AdQBzAGUAcgBuAGEAbQBlAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAHHdkdDG75yPkfDvG/WAsOSKWEYysdb10+ng6z0bBB1LClWraxSQ6yEBAQAAAAAAAADS2/dLgNcBilhGMrHW9dMAAAAAAgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQYABAACAAAACgAQAAAAAAAAAAAAAAAAAAAAAAAJACIAVABFAFIATQBTAFIAVgAvADEAMgA3AC4AMAAuADAALgAxAAAAAAAAAAAAAAAAAAAAAAAJ6ESTQivzZZUPx8gGGr1N",
+		"EncryptedRandomSessionKey": "CehEk0Ir82WVD8fIBhq9TQ==",
+		#"ChallengeTargetInfo": "AgAYAEQAOQA5AEIAQgBFADcANgA0ADYARQAzAAEAGABEADkAOQBCAEIARQA3ADYANAA2AEUAMwAEABgAZAA5ADkAYgBiAGUANwA2ADQANgBlADMAAwAYAGQAOQA5AGIAYgBlADcANgA0ADYAZQAzAAcACAAA0tv3S4DXAQYABAACAAAACgAQAAAAAAAAAAAAAAAAAAAAAAAJACIAVABFAFIATQBTAFIAVgAvADEAMgA3AC4AMAAuADAALgAxAAAAAAAAAAAAAAAAAAAAAAA=",
+		#"ClientChallenge": "ilhGMrHW9dM=",
+		#"ServerChallenge": "e+5HJ7symDM=",
+		#"Timestamp": "ANLb90uA1wE=",
+		#"MIC": "esIqmP+OC6SM1qZ1xRXAMQ==",
 	}
-	hash = extract_hash(f"{dir}/{session}.NegotiateOut.bin", f"{dir}/{session}.NegotiateIn.bin", f"{dir}/{session}.ChallengeOut.bin", f"{dir}/{session}.ChallengeIn.bin", f"{dir}/{session}.AuthenticateOut.bin", f"{dir}/{session}.AuthenticateIn.bin")
-	assert hash == f'$NLA${expected["UserName"]}${expected["DomainName"]}${expected["EncryptedRandomSessionKey"]}${expected["msg"]}'
+	expect_hash = f'$NLA${expected["UserName"]}${expected["DomainName"]}${expected["ntlm_v2_temp_chal"]}${expected["msg"]}${expected["EncryptedRandomSessionKey"]}'
+	actual_hash = extract_hash(f"{dir}/{session}.NegotiateOut.bin", f"{dir}/{session}.NegotiateIn.bin", f"{dir}/{session}.ChallengeOut.bin", f"{dir}/{session}.ChallengeIn.bin", f"{dir}/{session}.AuthenticateOut.bin", f"{dir}/{session}.AuthenticateIn.bin")
+	assert actual_hash == expect_hash
 
 
 def calculate_MIC(UserName, DomainName, Password, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey):
