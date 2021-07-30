@@ -617,32 +617,16 @@ def test_ntlm_compute_message_integrity_check():
 
 # Parse the files
 def parsefiles(session, dir):
-	context = {}
-
-	# We parse the files
-	print(f"[i] ** Parsing Client Negotiate for session {session}")
-	with open(f"{dir}/{session}.NegotiateIn.bin", "rb") as s:
-		ntlm_read_NegotiateMessage(context, s)
-
-	print(f"[i] ** Parsing Server Challenge for session {session}")
-	with open(f"{dir}/{session}.ChallengeOut.bin", 'rb') as s:
-		ntlm_unwrite_ChallengeMessage(context, s)
-
-	print(f"[i] ** Parsing Client Challenge for session {session}")
-	with open(f"{dir}/{session}.ChallengeIn.bin", 'rb') as s:
-		ntlm_read_ChallengeMessage(context, s)
-
-	print(f"[i] ** Parsing Server Authenticate for session {session}")
-	with open(f"{dir}/{session}.AuthenticateOut.bin", 'rb') as s:
-		ntlm_unwrite_AuthenticateMessage(context, s)
-
-	print(f"[i] ** Parsing Client Authenticate for session {session}")
-	with open(f"{dir}/{session}.AuthenticateIn.bin", 'rb') as s:
-		ai = ntlm_read_AuthenticateMessage(context, s)
-
-	workstation = ai["Workstation"]["Buffer"].decode("utf-16le")
-	domain = ai["DomainName"]["Buffer"].decode("utf-16le")
-	user = ai["UserName"]["Buffer"].decode("utf-16le")
+	hash_b64 = extract_hash(
+		f"{dir}/{session}.NegotiateIn.bin",
+		f"{dir}/{session}.ChallengeOut.bin",
+		f"{dir}/{session}.ChallengeIn.bin",
+		f"{dir}/{session}.AuthenticateOut.bin",
+		f"{dir}/{session}.AuthenticateIn.bin",
+	).split("$")[2:]
+	UserNameUpper, DomainName, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey, MessageIntegrityCheck = [base64.b64decode(b) for b in hash_b64]
+	user = UserNameUpper.decode("utf-16le")
+	domain = DomainName.decode("utf-16le")
 
 	passwordList = [
 		"qwerty",
@@ -651,21 +635,17 @@ def parsefiles(session, dir):
 	]
 	for password in passwordList:
 		print(f'[!] Trying "{password}"')
-		context["credentials"]["identity"]["Password"] = password.encode("utf-16le")
-
-		# We do some calculations
-		if ntlm_server_AuthenticateComplete(context):
-			print(f'[*] Attacker from {workstation} using "{domain}\\{user}" with "{context["credentials"]["identity"]["Password"].decode("utf-16le")}"')
+		Password = password.encode("utf-16le")
+		if MessageIntegrityCheck == calculate_MIC(Password, UserNameUpper, DomainName, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey):
+			print(f'[*] Attacker using "{domain}\\{user}" with "{password}"')
 			break
 	else:
-		print(f"[!] Attacker from {workstation} using {domain}\\{user} but we failed to crack the password")
+		print(f"[!] Attacker using {domain}\\{user} but we failed to crack the password")
 
 
-def extract_hash(NegotiateOut, NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
+def extract_hash(NegotiateIn, ChallengeOut, ChallengeIn, AuthenticateOut, AuthenticateIn):
 	context = {}
 
-	with open(NegotiateOut, "rb") as s:
-		no = s.read()
 	with open(NegotiateIn, "rb") as s:
 		ni = s.read()
 		s.seek(0)
@@ -679,30 +659,29 @@ def extract_hash(NegotiateOut, NegotiateIn, ChallengeOut, ChallengeIn, Authentic
 		ci = s.read()
 		s.seek(0)
 		ci_msg = ntlm_read_ChallengeMessage(context, s)
-		Timestamp = ci_msg["Timestamp"]
 	with open(AuthenticateOut, "rb") as s:
 		ao = s.read()
 	with open(AuthenticateIn, "rb") as s:
 		ai = s.read()
 		s.seek(0)
 		ai_msg = ntlm_read_AuthenticateMessage(context, s)
-		UserNameUpper = ai_msg["UserName"]["Buffer"].decode("utf-16le").upper().encode("utf-16le")
-		DomainName = ai_msg["DomainName"]["Buffer"]
-		EncryptedRandomSessionKey = ai_msg["EncryptedRandomSessionKey"]["Buffer"]
-		ClientChallenge = ai_msg["ClientChallenge"]
-		with io.BytesIO(ai_msg["NtChallengeResponse"]["Buffer"]) as snt:
-			ChallengeTargetInfo = ntlm_read_ntlm_v2_response(snt)["Challenge"]["AvPairs"]
-	msg = ni + ci + ao
 
+	UserNameUpper = ai_msg["UserName"]["Buffer"].decode("utf-16le").upper().encode("utf-16le")
+	DomainName = ai_msg["DomainName"]["Buffer"]
+	with io.BytesIO(ai_msg["NtChallengeResponse"]["Buffer"]) as snt:
+		ChallengeTargetInfo = ntlm_read_ntlm_v2_response(snt)["Challenge"]["AvPairs"]
 	ntlm_v2_temp = b"\x01"	# RespType (1 byte)
 	ntlm_v2_temp += b"\x01"	# HighRespType (1 byte)
 	ntlm_v2_temp += b"\x00\x00"	# Reserved1 (2 bytes)
 	ntlm_v2_temp += b"\x00\x00\x00\x00"	# Reserved2 (4 bytes)
-	ntlm_v2_temp += Timestamp	# Timestamp (8 bytes)
-	ntlm_v2_temp += ClientChallenge	# ClientChallenge (8 bytes)
+	ntlm_v2_temp += ci_msg["Timestamp"]	# Timestamp (8 bytes)
+	ntlm_v2_temp += ai_msg["ClientChallenge"]	# ClientChallenge (8 bytes)
 	ntlm_v2_temp += b"\x00\x00\x00\x00"	# Reserved3 (4 bytes)
 	ntlm_v2_temp += ChallengeTargetInfo
 	ntlm_v2_temp_chal = ServerChallenge + ntlm_v2_temp
+	msg = ni + ci + ao
+	EncryptedRandomSessionKey = ai_msg["EncryptedRandomSessionKey"]["Buffer"]
+	MessageIntegrityCheck = ai_msg["MessageIntegrityCheck"]
 
 	components = [
 		UserNameUpper,
@@ -710,6 +689,7 @@ def extract_hash(NegotiateOut, NegotiateIn, ChallengeOut, ChallengeIn, Authentic
 		ntlm_v2_temp_chal,
 		msg,
 		EncryptedRandomSessionKey,
+		MessageIntegrityCheck,
 	]
 	hash = "$NLA$" + "$".join(base64.b64encode(c).decode() for c in components)
 	return hash
@@ -728,10 +708,16 @@ def test_extract_hash():
 		#"ClientChallenge": "ilhGMrHW9dM=",
 		#"ServerChallenge": "e+5HJ7symDM=",
 		#"Timestamp": "ANLb90uA1wE=",
-		#"MIC": "esIqmP+OC6SM1qZ1xRXAMQ==",
+		"MessageIntegrityCheck": "esIqmP+OC6SM1qZ1xRXAMQ==",
 	}
-	expect_hash = f'$NLA${expected["UserName"]}${expected["DomainName"]}${expected["ntlm_v2_temp_chal"]}${expected["msg"]}${expected["EncryptedRandomSessionKey"]}'
-	actual_hash = extract_hash(f"{dir}/{session}.NegotiateOut.bin", f"{dir}/{session}.NegotiateIn.bin", f"{dir}/{session}.ChallengeOut.bin", f"{dir}/{session}.ChallengeIn.bin", f"{dir}/{session}.AuthenticateOut.bin", f"{dir}/{session}.AuthenticateIn.bin")
+	expect_hash = f'$NLA${expected["UserName"]}${expected["DomainName"]}${expected["ntlm_v2_temp_chal"]}${expected["msg"]}${expected["EncryptedRandomSessionKey"]}${expected["MessageIntegrityCheck"]}'
+	actual_hash = extract_hash(
+		f"{dir}/{session}.NegotiateIn.bin",
+		f"{dir}/{session}.ChallengeOut.bin",
+		f"{dir}/{session}.ChallengeIn.bin",
+		f"{dir}/{session}.AuthenticateOut.bin",
+		f"{dir}/{session}.AuthenticateIn.bin"
+	)
 	assert actual_hash == expect_hash
 
 
