@@ -500,9 +500,6 @@ def ntlm_rc4k(key, plaintext):
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^int ntlm_compute_lm_v2_response\(
 def ntlm_compute_lm_v2_response(context):
 	NtlmV2Hash = ntlm_compute_ntlm_v2_hash(context)
-	if NtlmV2Hash == False:
-		print("ntlm_compute_lm_v2_response: ntlm_compute_ntlm_v2_hash failed")
-		return False
 	context["NtlmV2Hash"] = NtlmV2Hash
 	value = context["ServerChallenge"] + context["ClientChallenge"]
 	# Compute the HMAC-MD5 hash of the resulting value using the NTLMv2 hash as the key
@@ -522,14 +519,6 @@ def ntlm_compute_ntlm_v2_hash(context):
 	# Password
 	hash = NTOWFv2W(credentials["identity"]["Password"], credentials["identity"]["User"], credentials["identity"]["Domain"])
 	return hash
-
-
-# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^static int ntlm_fetch_ntlm_v2_hash\(
-def ntlm_fetch_ntlm_v2_hash(context):
-	credentials = context["credentials"]
-	sam = "sam file"
-	entry = SamLookupUserW(sam, credentials["identity"]["User"], credentials["identity"]["Domain"])
-	return NTOWFv2FromHashW(entry["NtHash"], credentials["identity"]["User"], credentials["identity"]["Domain"])
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/utils/ntlm.c:/^BOOL NTOWFv2FromHashW\(
@@ -582,9 +571,6 @@ def test_winpr_HMAC():
 def ntlm_compute_ntlm_v2_response(context):
 	# Compute the NTLMv2 hash
 	NtlmV2Hash = ntlm_compute_ntlm_v2_hash(context)
-	if NtlmV2Hash == False:
-		print("ntlm_compute_ntlm_v2_response: ntlm_compute_ntlm_v2_hash failed")
-		return False
 
 	# Construct ntlm_v2_temp
 	ntlm_v2_temp = b"\x01"	# RespType (1 byte)
