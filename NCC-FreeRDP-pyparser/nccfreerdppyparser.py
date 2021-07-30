@@ -475,50 +475,6 @@ def ntlm_rc4k(key, plaintext):
 # Copyright © 2019 James Seo <james@equiv.tech> (github.com/kangtastic).
 #
 # This file is released under the WTFPL, version 2 (wtfpl.net).
-#
-# md4.py: An implementation of the MD4 hash algorithm in pure Python 3.
-#
-# Description: Zounds! Yet another rendition of pseudocode from RFC1320!
-#			  Bonus points for the algorithm literally being from 1992.
-#
-# Usage: Why would anybody use this? This is self-rolled crypto, and
-#		self-rolled *obsolete* crypto at that. DO NOT USE if you need
-#		something "performant" or "secure". :P
-#
-#		Anyway, from the command line:
-#
-#		   $ ./md4.py [messages]
-#
-#		where [messages] are some strings to be hashed.
-#
-#		In Python, use similarly to hashlib (not that it even has MD4):
-#
-#		   from .md4 import MD4
-#
-#		   digest = MD4("BEES").hexdigest()
-#
-#		   print(digest)  # "501af1ef4b68495b5b7e37b15b4cda68"
-#
-#
-# Sample console output:
-#
-#   Testing the MD4 class.
-#
-#   Message:  b''
-#   Expected: 31d6cfe0d16ae931b73c59d7e0c089c0
-#   Actual:   31d6cfe0d16ae931b73c59d7e0c089c0
-#
-#   Message:  b'The quick brown fox jumps over the lazy dog'
-#   Expected: 1bee69a46ba811185c194762abaeae90
-#   Actual:   1bee69a46ba811185c194762abaeae90
-#
-#   Message:  b'BEES'
-#   Expected: 501af1ef4b68495b5b7e37b15b4cda68
-#   Actual:   501af1ef4b68495b5b7e37b15b4cda68
-#
-import struct
-
-
 class MD4:
 	"""An implementation of the MD4 hash algorithm."""
 
