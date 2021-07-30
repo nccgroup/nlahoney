@@ -193,16 +193,14 @@ def ntlm_read_NegotiateMessage(context, s):
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_ChallengeMessage\(
 def ntlm_read_ChallengeMessage(context, s):
-	StartOffset = s.tell()
 	message = ntlm_read_message_header(s)
 	assert message["MessageType"] == MESSAGE_TYPE_CHALLENGE
 	message["TargetName"] = ntlm_read_message_fields(s)	# TargetNameFields (8 bytes)
 	message["NegotiateFlags"] = Stream_Read_UINT32(s)	# NegotiateFlags (4 bytes)
-	context["NegotiateFlags"] = message["NegotiateFlags"]
 	message["ServerChallenge"] = Stream_Read(s, 8)	# ServerChallenge (8 bytes)
 	message["Reserved"] = Stream_Read(s, 8)	# Reserved (8 bytes), should be ignored
 	message["TargetInfo"] = ntlm_read_message_fields(s)
-	if context["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
+	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
 		message["Version"] = ntlm_read_version_info(s)
 
 	PayloadOffset = s.tell()
@@ -213,12 +211,10 @@ def ntlm_read_ChallengeMessage(context, s):
 		context["ChallengeTargetInfo"]["pvBuffer"] = message["TargetInfo"]["Buffer"]
 		context["ChallengeTargetInfo"]["cbBuffer"] = message["TargetInfo"]["Len"]
 		message["Timestamp"] = ntlm_av_pair_get(message["TargetInfo"]["Buffer"], MsvAvTimestamp)
+		context["Timestamp"] = message["Timestamp"]
 
-	length = (PayloadOffset - StartOffset) + len(message["TargetName"]) + len(message["TargetInfo"])
 	s.seek(0)
 	context["ChallengeMessage"] = s.read()
-
-	context["Timestamp"] = message["Timestamp"]
 	return message
 
 
@@ -287,18 +283,19 @@ def ntlm_unwrite_ChallengeMessage(context, s):
 		print(f"[i] Got Target Info {binascii.hexlify(targetinfo)}")
 
 	# Finished reading from `s`. Time to write back to `context`.
-
-	context["NegotiateFlags"] = message["NegotiateFlags"]
 	context["ServerChallenge"] = message["ServerChallenge"]
-	context["CHALLENGE_MESSAGE"] = message
 
 	return message
 
 
+# ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_write_AuthenticateMessage\(
+def ntlm_unwrite_AuthenticateMessage(context, s):
+	context["AuthenticateMessage"] = s.read()
+
+
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_message.c:/^SECURITY_STATUS ntlm_read_AuthenticateMessage\(
 def ntlm_read_AuthenticateMessage(context, s):
-	context["AUTHENTICATE_MESSAGE"] = {}
-	message = context["AUTHENTICATE_MESSAGE"]
+	message = {}
 
 	ret = checkHeaderandGetType(s)
 	assert ret == MESSAGE_TYPE_AUTHENTICATE
@@ -352,12 +349,13 @@ def ntlm_read_AuthenticateMessage(context, s):
 	# Parse the NtChallengeResponse we read above
 	if message['NtChallengeResponse']['Len'] > 0:
 		with io.BytesIO(message["NtChallengeResponse"]["Buffer"]) as snt:
-			context["NTLMv2Response"] = ntlm_read_ntlm_v2_response(snt)
+			message["NTLMv2Response"] = ntlm_read_ntlm_v2_response(snt)
+			context["NTLMv2Response"] = message["NTLMv2Response"]
 		context["NtChallengeResponse"] = message["NtChallengeResponse"]
-		context["ChallengeTargetInfo"] = context["NTLMv2Response"]["Challenge"]["AvPairs"]
-		context["ClientChallenge"] = context["NTLMv2Response"]["Challenge"]["ClientChallenge"][:8]
-		message["ClientChallenge"] = context["ClientChallenge"]
-		AvFlags = ntlm_av_pair_get(context["NTLMv2Response"]["Challenge"]["AvPairs"], MsvAvFlags)
+		context["ChallengeTargetInfo"] = message["NTLMv2Response"]["Challenge"]["AvPairs"]
+		message["ClientChallenge"] = message["NTLMv2Response"]["Challenge"]["ClientChallenge"][:8]
+		context["ClientChallenge"] = message["ClientChallenge"]
+		AvFlags = ntlm_av_pair_get(message["NTLMv2Response"]["Challenge"]["AvPairs"], MsvAvFlags)
 		if AvFlags:
 			flags = AvFlags
 
@@ -652,11 +650,13 @@ def parsefiles(session, dir):
 	with open(f"{dir}/{session}.ChallengeIn.bin", 'rb') as s:
 		ntlm_read_ChallengeMessage(context, s)
 
-	print(f"[i] ** Parsing Authenticate for session {session}")
+	print(f"[i] ** Parsing Server Authenticate for session {session}")
+	with open(f"{dir}/{session}.AuthenticateOut.bin", 'rb') as s:
+		ntlm_unwrite_AuthenticateMessage(context, s)
+
+	print(f"[i] ** Parsing Client Authenticate for session {session}")
 	with open(f"{dir}/{session}.AuthenticateIn.bin", 'rb') as s:
 		ntlm_read_AuthenticateMessage(context, s)
-	with open(f"{dir}/{session}.AuthenticateOut.bin", 'rb') as s:
-		context["AuthenticateMessage"] = s.read()
 
 	workstation = context["AUTHENTICATE_MESSAGE"]["Workstation"]["Buffer"].decode("utf-16le")
 	domain = context["AUTHENTICATE_MESSAGE"]["DomainName"]["Buffer"].decode("utf-16le")
