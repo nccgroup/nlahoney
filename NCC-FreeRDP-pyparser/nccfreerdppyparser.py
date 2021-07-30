@@ -172,15 +172,12 @@ def ntlm_read_NegotiateMessage(context, s):
 	assert message["NegotiateFlags"] & NTLMSSP_REQUEST_TARGET
 	assert message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_NTLM
 	assert message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_UNICODE
-	print("[i] Got Negotiate flags")
 
 	# DomainNameFields (8 bytes)
 	message["Domain"] = ntlm_read_message_fields(s)
-	print(f"[i] Domain Length: {message['Domain']['Len']} at {message['Domain']['BufferOffset']}")
 
 	# WorkstationFields (8 bytes)
 	message["Workstation"] = ntlm_read_message_fields(s)
-	print(f"[i] Workstation Length: {message['Workstation']['Len']} at {message['Workstation']['BufferOffset']}")
 
 	# Version (8 bytes)
 	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
@@ -235,23 +232,18 @@ def ntlm_unwrite_ChallengeMessage(context, s):
 
 	# TargetNameFields (8 bytes)
 	message["TargetName"] = ntlm_read_message_fields(s)
-	print(f"[i] Target Name Length: {message['TargetName']['Len']} at {message['TargetName']['BufferOffset']}")
 
 	# NegotiateFlags (4 bytes)
 	message["NegotiateFlags"] = Stream_Read_UINT32(s)
-	print("[i] Got Negotiate flags")
 
 	# ServerChallenge (8 bytes)
 	message["ServerChallenge"] = Stream_Read(s, 8)
-	print("[i] Got Servers challenge {binascii.hexlify(challenge))}")
 
 	# Reserved (8 bytes), should be ignored
 	message["Reserved"] = Stream_Read(s, 8)
-	print("[i] Skipped reserved")
 
 	# TargetInfoFields (8 bytes)
 	message["TargetInfo"] = ntlm_read_message_fields(s)
-	print(f"[i] Target Info Length: {message['TargetInfo']['Len']} at {message['TargetInfo']['BufferOffset']}")
 
 	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
 		# Version (8 bytes)
@@ -268,19 +260,16 @@ def ntlm_unwrite_ChallengeMessage(context, s):
 		negotiateProductProductBuild = Stream_Read_UINT16(s)
 		__ = Stream_Read_UINT8(s) # Skip reserved byte
 		negotiateNTLMRevisionCurrent = Stream_Read_UINT8(s)
-		print("[i] from Version: " + str(negotiateProductMajorVersion) + "." + str(negotiateProductMinorVersion) + " build (" + str(negotiateProductProductBuild) +") NTLM Revision " + str(negotiateNTLMRevisionCurrent))
 
 	# Target Name
 	if message["NegotiateFlags"] & 0x00000004 : 	# NTLMSSP_REQUEST_TARGET
 		s.seek(message["TargetName"]["BufferOffset"])
 		targetname = Stream_Read(s, message["TargetName"]["Len"])
-		print(f"[i] Got Target Name {targetname}")
 
 	# Target Info - maybe parse this?
 	if message["NegotiateFlags"] & 0x00800000 :	# NTLMSSP_NEGOTIATE_TARGET_INFO
 		s.seek(message["TargetInfo"]["BufferOffset"])
 		targetinfo = Stream_Read(s, message["TargetInfo"]["Len"])
-		print(f"[i] Got Target Info {binascii.hexlify(targetinfo)}")
 
 	# Finished reading from `s`. Time to write back to `context`.
 	context["ServerChallenge"] = message["ServerChallenge"]
@@ -309,24 +298,19 @@ def ntlm_read_AuthenticateMessage(context, s):
 
 	# DomainNameFields (8 bytes)
 	message["DomainName"] = ntlm_read_message_fields(s)
-	print(f"[i] Domain Name Length: {message['DomainName']['Len']} at {message['DomainName']['BufferOffset']}")
 
 	# UserNameFields (8 bytes)
 	message["UserName"] = ntlm_read_message_fields(s)
-	print(f"[i] User Name Length: {message['UserName']['Len']} at {message['UserName']['BufferOffset']}")
 
 	# WorkstationFields (8 bytes)
 	message["Workstation"] = ntlm_read_message_fields(s)
-	print(f"[i] Workstation Length: {message['Workstation']['Len']} at {message['Workstation']['BufferOffset']}")
 
 	# EncryptedRandomSessionKeyFields (8 bytes)
 	message["EncryptedRandomSessionKey"] = ntlm_read_message_fields(s)
-	print(f"[i] Encrypted Random Session Key Length: {message['EncryptedRandomSessionKey']['Len']} at {message['EncryptedRandomSessionKey']['BufferOffset']}")
 
 	# NegotiateFlags (4 bytes)
 	message["NegotiateFlags"] = Stream_Read_UINT32(s)
 	context["NegotiateKeyExchange"] = (message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_KEY_EXCH) != 0
-	print("[i] Got Negotiate flags")
 
 	if message["NegotiateFlags"] & NTLMSSP_NEGOTIATE_VERSION:
 		# Version (8 bytes)
@@ -336,15 +320,10 @@ def ntlm_read_AuthenticateMessage(context, s):
 	PayloadBufferOffset = s.tell()
 
 	ntlm_read_message_fields_buffer(s, message["DomainName"])
-	print(f"[i] Got DomainName {message['DomainName']['Buffer'].decode('utf-16le')}")
 	ntlm_read_message_fields_buffer(s, message["UserName"])
-	print(f"[i] Got UserName {message['UserName']['Buffer'].decode('utf-16le')}")
 	ntlm_read_message_fields_buffer(s, message["Workstation"])
-	print(f"[i] Got Workstation {message['Workstation']['Buffer'].decode('utf-16le')}")
 	ntlm_read_message_fields_buffer(s, message["LmChallengeResponse"])
-	print(f"[i] LmChallengeResponse Length: {message['LmChallengeResponse']['Len']} at {message['LmChallengeResponse']['BufferOffset']}")
 	ntlm_read_message_fields_buffer(s, message["NtChallengeResponse"])
-	print(f"[i] NtChallengeResponse Length: {message['NtChallengeResponse']['Len']} at {message['NtChallengeResponse']['BufferOffset']}")
 
 	# Parse the NtChallengeResponse we read above
 	if message['NtChallengeResponse']['Len'] > 0:
@@ -364,7 +343,6 @@ def ntlm_read_AuthenticateMessage(context, s):
 	if message["EncryptedRandomSessionKey"]["Len"]:
 		assert message["EncryptedRandomSessionKey"]["Len"] == 16
 		context["EncryptedRandomSessionKey"] = message["EncryptedRandomSessionKey"]["Buffer"]
-	print("[i] Got Encrypted Random Session Key")
 
 	s.seek(0)
 	context["AuthenticateMessage"] = s.read()
@@ -374,10 +352,8 @@ def ntlm_read_AuthenticateMessage(context, s):
 	s.seek(PayloadBufferOffset)
 
 	assert flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK
-	print(f"[i] Message Integrity Check/Code (MIC) Present at {PayloadBufferOffset}")
 	context["MessageIntegrityCheckOffset"] = s.tell()
 	message["MessageIntegrityCheck"] = Stream_Read(s, 16)
-	print(f"[i] Got MIC {binascii.hexlify(message['MessageIntegrityCheck'])}")
 
 	context["credentials"] = context.get("credentials", {})
 	context["credentials"]["identity"] = context["credentials"].get("identity", {})
@@ -617,13 +593,15 @@ def test_ntlm_compute_message_integrity_check():
 
 # Parse the files
 def parsefiles(session, dir):
-	hash_b64 = extract_hash(
+	hash = extract_hash(
 		f"{dir}/{session}.NegotiateIn.bin",
 		f"{dir}/{session}.ChallengeOut.bin",
 		f"{dir}/{session}.ChallengeIn.bin",
 		f"{dir}/{session}.AuthenticateOut.bin",
 		f"{dir}/{session}.AuthenticateIn.bin",
-	).split("$")[2:]
+	)
+	print(hash)
+	hash_b64 = hash.split("$")[2:]
 	UserNameUpper, DomainName, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey, MessageIntegrityCheck = [base64.b64decode(b) for b in hash_b64]
 	user = UserNameUpper.decode("utf-16le")
 	domain = DomainName.decode("utf-16le")
