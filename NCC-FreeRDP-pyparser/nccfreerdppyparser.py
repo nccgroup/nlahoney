@@ -749,8 +749,9 @@ if __name__ == "__main__":
 	hash = generate_hash(messages)
 	print(hash)
 	components = hash_decode(hash)
-	user = components["UserNameUpper"].decode("utf-16le")
-	domain = components["DomainName"].decode("utf-16le")
+	user = messages["AuthenticateIn"]["UserName"]["Buffer"].decode("utf-16le")
+	domain = messages["AuthenticateIn"]["DomainName"]["Buffer"].decode("utf-16le")
+	workstation = messages["AuthenticateIn"]["Workstation"]["Buffer"].decode("utf-16le")
 
 	passwordList = [
 		"qwerty",
@@ -767,7 +768,7 @@ if __name__ == "__main__":
 			components["msg"],
 			components["EncryptedRandomSessionKey"],
 		):
-			print(f'[*] Attacker using "{domain}\\{user}" with "{password}"')
+			print(f'[*] Attacker from {workstation} using "{domain}\\{user}" with "{password}"')
 			break
 	else:
-		print(f"[!] Attacker using {domain}\\{user} but we failed to crack the password")
+		print(f"[!] Attacker from {workstation} using {domain}\\{user} but we failed to crack the password")
