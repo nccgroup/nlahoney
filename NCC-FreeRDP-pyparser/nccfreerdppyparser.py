@@ -595,13 +595,14 @@ def test_ntlm_compute_message_integrity_check():
 
 # Parse the files
 def parsefiles(session, dir):
-	hash = extract_hash(
+	messages = parse_dumps(
 		f"{dir}/{session}.NegotiateIn.bin",
 		f"{dir}/{session}.ChallengeOut.bin",
 		f"{dir}/{session}.ChallengeIn.bin",
 		f"{dir}/{session}.AuthenticateOut.bin",
 		f"{dir}/{session}.AuthenticateIn.bin",
 	)
+	hash = generate_hash(messages)
 	print(hash)
 	hash_b64 = hash.split("$")[2:]
 	UserNameUpper, DomainName, ntlm_v2_temp_chal, msg, EncryptedRandomSessionKey, MessageIntegrityCheck = [base64.b64decode(b) for b in hash_b64]
