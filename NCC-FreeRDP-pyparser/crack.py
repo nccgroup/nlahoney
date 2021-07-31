@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 
-# Imports
 import argparse
 import base64
 import binascii
 import hashlib
 import hmac
 import struct
-import sys
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm_compute.c:/^void ntlm_rc4k\(
