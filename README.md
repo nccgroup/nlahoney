@@ -7,8 +7,6 @@
 * `NCC-FreeRDP-pyparser/crack.py`: cracks hashes from `nccfreerdppyparser.py`
 * `docker/build.sh`: builds `FreeRDP-ResearchServer/`
 * `docker/dump.sh`: connects a FreeRDP client to a FreeRDP server, to dump RDP connection messages
-* `docker/run.sh`: run commands in a running container
-* `docker/killall.sh`: kill all running containers
 
 The goal is to deploy honeypots that can capture RDP handshakes, then crack them offline in an effort to understand which passwords are being sprayed at RDP honeypots we deploy, are they organization-specific, etc. Currently we can successfully capture the handshakes (see `FreeRDP-ResearchServer/`), extract the relevant data (see `nccfreerdppyparser.py`), and crack them (see `crack.py`).
 
