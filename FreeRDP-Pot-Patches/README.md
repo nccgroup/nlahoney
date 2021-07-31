@@ -1,5 +1,5 @@
 # Apply the patch
-git apply x.y.n.patch
+git apply --ignore-space-change --ignore-whitespace x.y.n.patch
 
 # Build
 mkdir build
