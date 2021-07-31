@@ -4,7 +4,6 @@
 # This parses a session from a server perspective
 #
 
-# Imports
 import argparse
 import base64
 import binascii
@@ -13,11 +12,9 @@ import hashlib
 import hmac
 import io
 import os
-import pprint
 import secrets
 import struct
 import sys
-import unittest
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm.h
@@ -63,13 +60,6 @@ MSV_AV_FLAGS_TARGET_SPN_UNTRUSTED_SOURCE = 0x00000004
 MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK = 0x00000002
 SSPI_CREDENTIALS_HASH_LENGTH_OFFSET = 512
 UINT32_MAX = 0xffffffff
-
-# AV Pair
-# struct _NTLM_AV_PAIR
-#{
-#	UINT16 AvId;
-#	UINT16 AvLen;
-#};
 
 # enum _NTLM_AV_ID
 MsvAvEOL = 0
