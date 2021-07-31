@@ -14,5 +14,5 @@ The goal is to deploy honeypots that can capture RDP handshakes, then crack them
 Next steps:
 
 * rewrite `crack.py` as a hashcat plugin
-* clean up `FreeRDP-ResearchServer/` to be production ready
+* ~~clean up `FreeRDP-ResearchServer/` to be production ready~~
 * are there authentication methods that require SAM databases?
