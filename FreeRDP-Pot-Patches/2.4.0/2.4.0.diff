@@ -1,0 +1,117 @@
+diff --git a/winpr/libwinpr/sspi/NTLM/ntlm.c b/winpr/libwinpr/sspi/NTLM/ntlm.c
+index 15626fbcc..5cda780d8 100644
+--- a/winpr/libwinpr/sspi/NTLM/ntlm.c
++++ b/winpr/libwinpr/sspi/NTLM/ntlm.c
+@@ -178,6 +178,8 @@ static NTLM_CONTEXT* ntlm_ContextNew(void)
+ 	if (!context)
+ 		return NULL;
+ 
++	srand (time(NULL)); // be on the safe side
++	context->randID = (unsigned int) rand();
+ 	context->NTLMv2 = TRUE;
+ 	context->UseMIC = FALSE;
+ 	context->SendVersionInfo = TRUE;
+diff --git a/winpr/libwinpr/sspi/NTLM/ntlm.h b/winpr/libwinpr/sspi/NTLM/ntlm.h
+index 21ae893a3..13159d582 100644
+--- a/winpr/libwinpr/sspi/NTLM/ntlm.h
++++ b/winpr/libwinpr/sspi/NTLM/ntlm.h
+@@ -216,6 +216,7 @@ typedef struct _NTLM_AUTHENTICATE_MESSAGE NTLM_AUTHENTICATE_MESSAGE;
+ 
+ struct _NTLM_CONTEXT
+ {
++	unsigned int randID; // Used for our cracking approach
+ 	BOOL server;
+ 	BOOL NTLMv2;
+ 	BOOL UseMIC;
+diff --git a/winpr/libwinpr/sspi/NTLM/ntlm_message.c b/winpr/libwinpr/sspi/NTLM/ntlm_message.c
+index c6c20f240..219cd4c2b 100644
+--- a/winpr/libwinpr/sspi/NTLM/ntlm_message.c
++++ b/winpr/libwinpr/sspi/NTLM/ntlm_message.c
+@@ -72,6 +72,20 @@ static const char* const NTLM_NEGOTIATE_STRINGS[] = { "NTLMSSP_NEGOTIATE_56",
+ 	                                                  "NTLMSSP_NEGOTIATE_OEM",
+ 	                                                  "NTLMSSP_NEGOTIATE_UNICODE" };
+ 
++
++static void nlahoney_store(NTLM_CONTEXT* context, BYTE* buffer, size_t count, char *type){
++
++	char strFileOut[255];
++	sprintf(strFileOut,"/tmp/%u.%s.bin",context->randID,type);
++	FILE *ptrFile = fopen(strFileOut,"wb");
++	size_t wroteOut = 0;
++	wroteOut = fwrite(buffer,sizeof(byte),count,ptrFile);
++	fclose(ptrFile);
++	fprintf(stdout,"[HONEY] Wrote %u to %s\n",(unsigned int)wroteOut,strFileOut);
++
++	return;
++}
++
+ static void ntlm_print_negotiate_flags(UINT32 flags)
+ {
+ 	int i;
+@@ -197,6 +211,9 @@ static void ntlm_print_message_fields(NTLM_MESSAGE_FIELDS* fields, const char* n
+ 
+ SECURITY_STATUS ntlm_read_NegotiateMessage(NTLM_CONTEXT* context, PSecBuffer buffer)
+ {
++	
++	nlahoney_store(context,(BYTE*)buffer->pvBuffer,buffer->cbBuffer,"NegotiateIn");
++	
+ 	wStream* s;
+ 	size_t length;
+ 	NTLM_NEGOTIATE_MESSAGE* message;
+@@ -283,6 +300,7 @@ SECURITY_STATUS ntlm_read_NegotiateMessage(NTLM_CONTEXT* context, PSecBuffer buf
+ 		ntlm_print_version_info(&(message->Version));
+ 
+ #endif
++
+ 	context->state = NTLM_STATE_CHALLENGE;
+ 	Stream_Free(s, FALSE);
+ 	return SEC_I_CONTINUE_NEEDED;
+@@ -362,6 +380,9 @@ SECURITY_STATUS ntlm_write_NegotiateMessage(NTLM_CONTEXT* context, PSecBuffer bu
+ 		ntlm_print_version_info(&(message->Version));
+ 
+ #endif
++
++	nlahoney_store(context,(BYTE*)context->NegotiateMessage,context->NegotiateMessage.cbBuffer,"NegotiateOut");
++	
+ 	context->state = NTLM_STATE_CHALLENGE;
+ 	Stream_Free(s, FALSE);
+ 	return SEC_I_CONTINUE_NEEDED;
+@@ -369,6 +390,9 @@ SECURITY_STATUS ntlm_write_NegotiateMessage(NTLM_CONTEXT* context, PSecBuffer bu
+ 
+ SECURITY_STATUS ntlm_read_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer buffer)
+ {
++	
++	nlahoney_store(context,(BYTE*)buffer->pvBuffer,buffer->cbBuffer,"ChallengeIn");
++	
+ 	SECURITY_STATUS status = SEC_E_INVALID_TOKEN;
+ 	wStream* s;
+ 	size_t length;
+@@ -647,11 +671,17 @@ SECURITY_STATUS ntlm_write_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer bu
+ #endif
+ 	context->state = NTLM_STATE_AUTHENTICATE;
+ 	Stream_Free(s, FALSE);
++	
++	nlahoney_store(context,(BYTE*)context->ChallengeMessage.pvBuffer,context->ChallengeMessage.cbBuffer,"ChallengeOut");
++		
+ 	return SEC_I_CONTINUE_NEEDED;
+ }
+ 
+ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer buffer)
+ {
++	
++	nlahoney_store(context,(BYTE*)buffer->pvBuffer,buffer->cbBuffer,"AuthenticateIn");
++
+ 	SECURITY_STATUS status = SEC_E_INVALID_TOKEN;
+ 	wStream* s;
+ 	size_t length;
+@@ -1040,6 +1070,10 @@ SECURITY_STATUS ntlm_write_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer
+ 	}
+ 
+ #endif
++
++
++	nlahoney_store(context,(BYTE*)context->AuthenticateMessage.pvBuffer,context->AuthenticateMessage.cbBuffer,"AuthenticateOut");
++		
+ 	context->state = NTLM_STATE_FINAL;
+ 	Stream_Free(s, FALSE);
+ 	return SEC_E_OK;
