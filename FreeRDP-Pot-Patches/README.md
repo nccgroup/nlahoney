@@ -1,3 +1,6 @@
+# Apply the patch
+git apply <x>.<y>.<n>.patch
+
 # Build
 mkdir build
 cd build
